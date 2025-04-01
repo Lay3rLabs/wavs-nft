@@ -2,7 +2,7 @@
 
 **Template for getting started with developing WAVS applications**
 
-A template for developing WebAssembly AVS applications using Rust and Solidity, configured for Windows *WSL*, Linux, and MacOS. The sample oracle service fetches the current price of a cryptocurrency from [CoinMarketCap](https://coinmarketcap.com) and saves it on chain.
+A template for developing WebAssembly AVS applications using Rust and Solidity, configured for Windows _WSL_, Linux, and MacOS. The sample oracle service fetches the current price of a cryptocurrency from [CoinMarketCap](https://coinmarketcap.com) and saves it on chain.
 
 ## System Requirements
 
@@ -10,27 +10,32 @@ A template for developing WebAssembly AVS applications using Rust and Solidity, 
 <summary>Core (Docker, Compose, Make, JQ, Node v21+)</summary>
 
 ### Docker
+
 - **MacOS**: `brew install --cask docker`
 - **Linux**: `sudo apt -y install docker.io`
 - **Windows WSL**: [docker desktop wsl](https://docs.docker.com/desktop/wsl/#turn-on-docker-desktop-wsl-2) & `sudo chmod 666 /var/run/docker.sock`
 - [Docker Documentation](https://docs.docker.com/get-started/get-docker/)
 
 ### Docker Compose
+
 - **MacOS**: Already installed with Docker installer
 - **Linux + Windows WSL**: `sudo apt-get install docker-compose-v2`
 - [Compose Documentation](https://docs.docker.com/compose/)
 
 ### Make
+
 - **MacOS**: `brew install make`
 - **Linux + Windows WSL**: `sudo apt -y install make`
 - [Make Documentation](https://www.gnu.org/software/make/manual/make.html)
 
 ### JQ
+
 - **MacOS**: `brew install jq`
 - **Linux + Windows WSL**: `sudo apt -y install jq`
 - [JQ Documentation](https://jqlang.org/download/)
 
 ### Node.js
+
 - **Required Version**: v21+
 - [Installation via NVM](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)
 </details>
@@ -129,10 +134,12 @@ COIN_MARKET_CAP_ID=1 make wasi-exec
 
 > [!NOTE]
 > If you are running on a Mac with an ARM chip, you will need to do the following:
+>
 > - Set up Rosetta: `softwareupdate --install-rosetta`
 > - Enable Rosetta (Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
 >
 > Configure one of the following networking:
+>
 > - Docker Desktop: Settings -> Resources -> Network -> 'Enable Host Networking'
 > - `brew install chipmk/tap/docker-mac-net-connect && sudo brew services start chipmk/tap/docker-mac-net-connect`
 
@@ -155,13 +162,13 @@ make start-all
 Upload your service's trigger and submission contracts. The trigger contract is where WAVS will watch for events, and the submission contract is where the AVS service operator will submit the result on chain.
 
 ```bash
-export SERVICE_MANAGER_ADDR=`make get-eigen-service-manager-from-deploy`
+export SERVICE_MANAGER_ADDR=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
 forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
 > [!TIP]
-> You can see the deployed trigger address with `make get-trigger-from-deploy`
-> and the deployed submission address with `make get-service-handler-from-deploy`
+> You can see the deployed trigger address with `jq -r '.trigger' "./.docker/script_deploy.json"`
+> and the deployed submission address with `jq -r '.service_handler' "./.docker/script_deploy.json"`
 
 ## Deploy Service
 
@@ -176,8 +183,7 @@ TRIGGER_EVENT="NewTrigger(bytes)" make deploy-service
 Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
 
 ```bash
-export COIN_MARKET_CAP_ID=1
-export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`
+export SERVICE_TRIGGER_ADDR=`jq -r '.trigger' "./.docker/script_deploy.json"`
 forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast -v 4
 ```
 
@@ -187,5 +193,5 @@ Query the latest submission contract id from the previous request made.
 
 ```bash
 # Get the latest TriggerId and show the result via `script/ShowResult.s.sol`
-make show-result
+forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} ${SERVICE_SUBMISSION_ADDR} --sig "run(string,string)" --rpc-url $(RPC_URL) --broadcast -v 4
 ```
