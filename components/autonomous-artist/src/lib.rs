@@ -50,7 +50,7 @@ struct OllamaChatMessage {
 struct Component;
 
 impl Guest for Component {
-    fn run(action: TriggerAction) -> std::result::Result<Vec<u8>, String> {
+    fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
         let trigger_info = decode_trigger_event(action.data)?;
 
         let prompt = trigger_info.data;
@@ -82,7 +82,7 @@ impl Guest for Component {
                 base64::engine::general_purpose::STANDARD.encode(json)
             );
 
-            Ok(encode_trigger_output(trigger_info.triggerId, data_uri.abi_encode()))
+            Ok(Some(encode_trigger_output(trigger_info.triggerId, data_uri.abi_encode())))
         })
     }
 }

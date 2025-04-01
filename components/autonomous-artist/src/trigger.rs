@@ -9,7 +9,7 @@ pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<TriggerInfo, St
         TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
             let event: solidity::NewTrigger =
                 decode_event_log_data!(log).map_err(|e| e.to_string())?;
-            solidity::TriggerInfo::abi_decode(&event._0, false).map_err(|e| e.to_string())
+            solidity::TriggerInfo::abi_decode(&event._triggerInfo, false).map_err(|e| e.to_string())
         }
         _ => Err("Unsupported trigger data type".to_string()),
     }
