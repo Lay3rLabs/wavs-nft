@@ -6,27 +6,20 @@ import {console} from "forge-std/console.sol";
 import {WavsMinter} from "../src/contracts/WavsMinter.sol";
 import {ITypes} from "../src/interfaces/ITypes.sol";
 import {Common} from "./Common.s.sol";
-import {stdJson} from "forge-std/StdJson.sol";
 import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 
 contract Trigger is Common {
-    using stdJson for string;
-
-    string public root = vm.projectRoot();
-    string public script_output_path =
-        string.concat(root, "/.docker/script_deploy.json");
-
     /**
      * @dev Triggers the NFT minter contract with a prompt
+     * @param _minterAddr The address of the minter contract
      * @param _prompt The prompt to use for generating the NFT
      */
-    function run(string memory _prompt) public {
-        // Read minter address from deployment JSON
-        string memory json = vm.readFile(script_output_path);
-        address minterAddr = vm.parseAddress(json.readString(".minter"));
-
-        console.log("Using minter address:", Strings.toHexString(minterAddr));
-        WavsMinter minter = WavsMinter(minterAddr);
+    function run(address _minterAddr, string memory _prompt) public {
+        console.log(
+            "Using minter address:",
+            Strings.toHexString(uint160(_minterAddr))
+        );
+        WavsMinter minter = WavsMinter(_minterAddr);
 
         vm.startBroadcast(_privateKey);
 

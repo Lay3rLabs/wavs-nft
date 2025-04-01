@@ -19,6 +19,7 @@ use wstd::{
 };
 
 sol! {
+    // Keep type definitions for internal use
     type TriggerId is uint64;
 
     enum TriggerType {
@@ -32,11 +33,12 @@ sol! {
         string tokenURI;
     }
 
+    // Refactor event to use primitive types
     event AvsMintTrigger(
         address indexed sender,
         string prompt,
-        TriggerId indexed triggerId,
-        TriggerType triggerType
+        uint64 indexed triggerId,
+        uint8 triggerType
     );
 }
 
@@ -123,7 +125,12 @@ impl Guest for Component {
             eprintln!("Data URI: {}", data_uri);
 
             Ok(Some(
-                WavsMintResult { triggerId, recipient: sender, tokenURI: data_uri }.abi_encode(),
+                WavsMintResult {
+                    triggerId: triggerId.into(),
+                    recipient: sender,
+                    tokenURI: data_uri,
+                }
+                .abi_encode(),
             ))
         })
     }

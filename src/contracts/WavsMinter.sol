@@ -36,8 +36,8 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     event AvsMintTrigger(
         address indexed sender,
         string prompt,
-        ITypes.TriggerId indexed triggerId,
-        ITypes.TriggerType triggerType
+        uint64 indexed triggerId,
+        uint8 triggerType
     );
 
     // Event emitted when a mint is fulfilled
@@ -93,8 +93,8 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
         emit AvsMintTrigger(
             msg.sender,
             prompt,
-            triggerId,
-            ITypes.TriggerType.MINT
+            ITypes.TriggerId.unwrap(triggerId),
+            uint8(ITypes.TriggerType.MINT)
         );
 
         return triggerId;
