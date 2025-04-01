@@ -30,6 +30,8 @@ impl Guest for Component {
                 let NFTMinted { triggerId, .. } = decode_event_log_data!(log)
                     .map_err(|e| format!("Failed to decode event log data: {}", e))?;
 
+                eprintln!("Processing Trigger ID: {}", triggerId);
+
                 // Return the ABI-encoded triggerId
                 Ok(Some(TriggerId(triggerId).abi_encode()))
             }
