@@ -2801,6 +2801,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "simple-relay"
+version = "0.3.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-macro",
+ "alloy-sol-types",
+ "anyhow",
+ "base64",
+ "ethabi",
+ "hex",
+ "mockall",
+ "primitive-types 0.13.1",
+ "serde",
+ "serde_json",
+ "wavs-wasi-chain",
+ "wit-bindgen-rt 0.39.0",
+ "wstd",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -28,22 +28,9 @@ contract WavsNft is
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    mapping(ITypes.TriggerId => Trigger) public triggersById;
-    mapping(address => ITypes.TriggerId[]) public triggerIdsByCreator;
-
     IWavsServiceManager public serviceManager;
     ITypes.TriggerId public nextTriggerId;
     uint256 public nextTokenId;
-
-    /**
-     * @notice Struct to store trigger information
-     * @param creator Address of the creator of the trigger
-     * @param data Data associated with the trigger
-     */
-    struct Trigger {
-        address creator;
-        bytes data;
-    }
 
     struct WavsMintResult {
         ITypes.TriggerId triggerId;
@@ -63,7 +50,7 @@ contract WavsNft is
         address indexed to,
         uint256 indexed tokenId,
         string dataUri,
-        ITypes.TriggerId triggerId
+        uint64 triggerId
     );
 
     constructor(
@@ -116,41 +103,9 @@ contract WavsNft is
             mintResult.recipient,
             tokenId,
             mintResult.tokenURI,
-            mintResult.triggerId
+            ITypes.TriggerId.unwrap(mintResult.triggerId)
         );
     }
-
-    // /**
-    //  * @notice Get a single trigger by triggerId.
-    //  * @param triggerId The identifier of the trigger.
-    //  */
-    // function getTrigger(
-    //     ITypes.TriggerId triggerId
-    // ) public view returns (ITypes.TriggerInfo memory) {
-    //     Trigger storage trigger = triggersById[triggerId];
-
-    //     return
-    //         ITypes.TriggerInfo({
-    //             triggerId: triggerId,
-    //             creator: trigger.creator,
-    //             data: trigger.data
-    //         });
-    // }
-
-    // function getTriggerCount(address creator) external view returns (uint256) {
-    //     return triggerIdsByCreator[creator].length;
-    // }
-
-    // function getTriggerIdAtIndex(
-    //     address creator,
-    //     uint256 index
-    // ) external view returns (ITypes.TriggerId) {
-    //     require(
-    //         index < triggerIdsByCreator[creator].length,
-    //         "Index out of bounds"
-    //     );
-    //     return triggerIdsByCreator[creator][index];
-    // }
 
     // Add tokenURI override
     function tokenURI(

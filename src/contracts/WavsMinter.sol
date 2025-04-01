@@ -16,7 +16,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     uint256 public mintPrice = 0.1 ether;
 
     // Mapping to store additional metadata for each trigger
-    mapping(ITypes.TriggerId => TriggerMetadata) public triggerMetadata;
+    mapping(ITypes.TriggerId => Receipt) public receipts;
 
     // Interface to the WAVS service manager
     IWavsServiceManager public serviceManager;
@@ -25,7 +25,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     ITypes.TriggerId public nextTriggerId;
 
     // Structure to hold metadata about the trigger
-    struct TriggerMetadata {
+    struct Receipt {
         address creator;
         string prompt;
         ITypes.TriggerType triggerType;
@@ -41,7 +41,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     );
 
     // Event emitted when a mint is fulfilled
-    event MintFulfilled(ITypes.TriggerId indexed triggerId, uint256 tokenId);
+    event MintFulfilled(ITypes.TriggerId indexed triggerId);
 
     // Event emitted when mint price is updated
     event MintPriceUpdated(uint256 newPrice);
@@ -73,7 +73,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
         );
 
         // Store metadata for this mint request
-        triggerMetadata[triggerId] = TriggerMetadata({
+        receipts[triggerId] = Receipt({
             creator: msg.sender,
             prompt: prompt,
             triggerType: ITypes.TriggerType.MINT,
@@ -111,26 +111,20 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     ) external override {
         serviceManager.validate(data, signature);
 
-        ITypes.DataWithId memory dataWithId = abi.decode(
-            data,
-            (ITypes.DataWithId)
+        ITypes.TriggerId triggerId = abi.decode(data, (ITypes.TriggerId));
+
+        // Check if the trigger exists and is not already fulfilled
+        require(
+            receipts[triggerId].creator != address(0),
+            "Trigger does not exist"
         );
-
-        // Get the trigger metadata
-        TriggerMetadata storage metadata = triggerMetadata[
-            dataWithId.triggerId
-        ];
-        require(!metadata.fulfilled, "Already fulfilled");
-
-        // Decode the result data
-        string memory dataUri = abi.decode(dataWithId.data, (string));
-        require(bytes(dataUri).length > 0, "URI is empty");
+        require(!receipts[triggerId].fulfilled, "Trigger already fulfilled");
 
         // Mark the trigger as fulfilled
-        metadata.fulfilled = true;
+        receipts[triggerId].fulfilled = true;
 
         // Emit the fulfillment event
-        emit MintFulfilled(dataWithId.triggerId, 0); // TODO: Add tokenId when we have NFT contract integration
+        emit MintFulfilled(triggerId);
     }
 
     /**
@@ -140,15 +134,6 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     function setMintPrice(uint256 newPrice) external onlyOwner {
         mintPrice = newPrice;
         emit MintPriceUpdated(newPrice);
-    }
-
-    /**
-     * @notice Update the service manager address (owner only)
-     * @param newAddress The new service manager address
-     */
-    function setServiceManager(address newAddress) external onlyOwner {
-        require(newAddress != address(0), "Invalid address");
-        serviceManager = IWavsServiceManager(newAddress);
     }
 
     /**
@@ -171,7 +156,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
      */
     function getTrigger(
         ITypes.TriggerId triggerId
-    ) external view returns (TriggerMetadata memory) {
-        return triggerMetadata[triggerId];
+    ) external view returns (Receipt memory) {
+        return receipts[triggerId];
     }
 }

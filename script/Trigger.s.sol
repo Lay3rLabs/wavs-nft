@@ -32,13 +32,10 @@ contract Trigger is Common {
         ITypes.TriggerId triggerId = ITypes.TriggerId.wrap(0);
 
         // Fetch and log the trigger metadata
-        WavsMinter.TriggerMetadata memory metadata = minter.getTrigger(
-            triggerId
-        );
+        WavsMinter.Receipt memory metadata = minter.getTrigger(triggerId);
 
         console.log("Trigger created by:", metadata.creator);
         console.log("Trigger message:", metadata.prompt);
         console.log("Trigger type:", uint8(metadata.triggerType));
-        console.log("Fulfilled:", metadata.fulfilled ? "Yes" : "No");
     }
 }

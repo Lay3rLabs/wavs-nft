@@ -2,7 +2,31 @@
 
 **Template for getting started with developing building dynamic NFTs with WAVS.**
 
-This example demonstrates a simple Dynamic NFT + Minter contract that can communicate with each other cross-chain.
+This example demonstrates a simple Dynamic NFT + Minter contract that can even communicate with each other cross-chain.
+
+There are two conracts `WavsNft.sol` and `WavsMinter.sol`, as well as two components `autonomous-artist` and `simple-relay`.
+
+The flow is:
+
+1. User pays minter contract which emits an `AvsMintTrigger` event
+2. WAVS listens for event and triggers the registered WASI component
+3. `autonomous-artist` component runs and outputs an NFT tokenURI
+4. WAVS operators sign output with their keys and send results to aggregator
+5. Aggregator agregates signatures and puts results on chain
+6. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `NFTMinted` event.
+7. WAVS listens for event and triggers the registered WASI component
+8. `simple-relay` component runs an outputs the TriggerId that has been completed
+9. Operators sign output
+10. Aggregator agregates signatures and submits them on chain
+11. `handleSignedData` is called on the `WavsMinter.sol` contract, it deletes the Receipt
+
+TODO:
+
+- [ ] EVM Query example, use that to add a "rich" attribute
+- [ ] Generate an SVG
+- [ ] IPFS upload (ideally using a WAVS workflow)
+- [ ] Update instructions for running on two different chains
+- [ ] Update flow
 
 ## System Requirements
 
@@ -197,11 +221,14 @@ Let's set these based on our recently run deployment script, and deploy the comp
 
 ```bash
 # Get deployed service trigger and submission contract addresses
-export SERVICE_TRIGGER_ADDR=`jq -r '.minter' "./.docker/script_deploy.json"`
-export SERVICE_SUBMISSION_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
+export WAVS_MINTER=`jq -r '.minter' "./.docker/script_deploy.json"`
+export WAVS_NFT=`jq -r '.nft' "./.docker/script_deploy.json"`
 
-# Deploy component
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="AvsMintTrigger(address,string,uint64,uint8)" SERVICE_TRIGGER_ADDR=$SERVICE_TRIGGER_ADDR SERVICE_SUBMISSION_ADDR=$SERVICE_SUBMISSION_ADDR make deploy-service
+# Deploy autonmous artist component
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="AvsMintTrigger(address,string,uint64,uint8)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
+
+# Deploy simple relayer component
+COMPONENT_FILENAME=simple_relay.wasm TRIGGER_EVENT="NFTMinted(address,uint256,string,uint64)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_MINTER make deploy-service
 ```
 
 To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.
@@ -210,12 +237,27 @@ To see all options for deploying services, run `make wavs-cli -- deploy-service 
 
 ```bash
 # Run the trigger script with the minter address and prompt
-forge script ./script/Trigger.s.sol:Trigger $SERVICE_TRIGGER_ADDR "How do I become a great Artist?" \
+forge script ./script/Trigger.s.sol:Trigger $WAVS_MINTER "How do I become a great Artist?" \
   --sig "run(address,string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
-### Show the result
+### Show the results
+
+After triggering the service, you can check the status of both the NFT and the mint receipts using the Show script:
 
 ```bash
-cast call $SERVICE_SUBMISSION_ADDR "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
+# Run the show script with the NFT and minter addresses
+forge script ./script/Show.s.sol:ShowResults $WAVS_NFT $WAVS_MINTER \
+  --sig "run(address,address)" --rpc-url http://localhost:8545
+```
+
+This will display information about:
+
+- The last minted NFT (including its tokenURI and how to decode it)
+- All mint receipts in the system (including whether they're fulfilled)
+
+You can also check and decode the NFT's token URI directly in one line:
+
+```bash
+cast call $WAVS_NFT "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
 ```
