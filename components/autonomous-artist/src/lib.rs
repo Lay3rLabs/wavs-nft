@@ -12,10 +12,10 @@ use wstd::{
     runtime::block_on,
 };
 mod trigger;
-use trigger::{decode_trigger_event, encode_trigger_output};
+use trigger::{decode_trigger_event, encode_trigger_output, Destination};
 
 // NFT Metadata structure
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct NFTMetadata {
     name: String,
     description: String,
@@ -23,7 +23,7 @@ struct NFTMetadata {
     attributes: Vec<Attribute>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Attribute {
     trait_type: String,
     value: String,
@@ -51,9 +51,12 @@ struct Component;
 
 impl Guest for Component {
     fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
-        let trigger_info = decode_trigger_event(action.data)?;
+        // Decode the trigger event
+        let (trigger_id, prompt, destination) =
+            decode_trigger_event(action.data).map_err(|e| e.to_string())?;
 
-        let prompt = trigger_info.data;
+        eprintln!("Processing Trigger ID: {}", trigger_id);
+        eprintln!("Prompt: {}", String::from_utf8_lossy(&prompt));
 
         block_on(async move {
             // Decode the ABI-encoded string first
@@ -62,6 +65,7 @@ impl Guest for Component {
 
             // Query Ollama
             let response = query_ollama(&decoded.to_string()).await?;
+            eprintln!("Response: {}", response);
 
             // Create NFT metadata
             let metadata = NFTMetadata {
@@ -73,6 +77,7 @@ impl Guest for Component {
                     value: decoded.to_string(),
                 }],
             };
+            eprintln!("Metadata: {:?}", metadata);
 
             // Serialize to JSON and convert to data URI
             let json = serde_json::to_string(&metadata)
@@ -81,8 +86,16 @@ impl Guest for Component {
                 "data:application/json;base64,{}",
                 base64::engine::general_purpose::STANDARD.encode(json)
             );
+            eprintln!("Data URI: {}", data_uri);
 
-            Ok(Some(encode_trigger_output(trigger_info.triggerId, data_uri.abi_encode())))
+            let output = match destination {
+                Destination::Ethereum => {
+                    Some(encode_trigger_output(trigger_id, data_uri.abi_encode()))
+                }
+                Destination::CliOutput => Some(data_uri.into_bytes()),
+            };
+
+            Ok(output)
         })
     }
 }
