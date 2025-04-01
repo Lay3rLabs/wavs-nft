@@ -2,7 +2,7 @@
 
 **Template for getting started with developing building dynamic NFTs with WAVS.**
 
-This example demonstrates a simple dynamic NFT contract that can be minted / updated via an AVS.
+This example demonstrates a simple Dynamic NFT + Minter contract that can communicate with each other cross-chain.
 
 ## System Requirements
 
