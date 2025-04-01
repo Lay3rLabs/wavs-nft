@@ -1,5 +1,7 @@
 #[allow(warnings)]
 mod bindings;
+// TODO: Implement IPFS integration
+// mod ipfs;
 mod nft;
 mod ollama;
 
@@ -71,10 +73,45 @@ impl Guest for Component {
             let response = ollama::query_ollama(&prompt).await?;
             eprintln!("Response: {}", response);
 
-            // TODO generate more interesting attributes
-            // TODO query eth balance of creator, if > 1, add "rich" attribute
+            // Check the creator's ETH balance
+            let sender_address = sender.to_string();
+            eprintln!("Checking balance for address: {}", sender_address);
 
-            let attributes = vec![Attribute { trait_type: "Prompt".to_string(), value: prompt }];
+            let mut attributes =
+                vec![Attribute { trait_type: "Prompt".to_string(), value: prompt }];
+
+            // Query ETH balance and add a "wealth" attribute if balance > 1 ETH
+            match ethereum::query_eth_balance(&sender_address).await {
+                Ok(balance) => {
+                    let formatted_balance = ethereum::format_eth_balance(balance.clone());
+                    eprintln!("Creator balance: {}", formatted_balance);
+
+                    // Add wealth attribute based on balance
+                    let one_eth =
+                        alloy_primitives::U256::from(10).pow(alloy_primitives::U256::from(18));
+                    if balance >= one_eth {
+                        attributes.push(Attribute {
+                            trait_type: "Creator Wealth".to_string(),
+                            value: "Rich".to_string(),
+                        });
+                    } else {
+                        attributes.push(Attribute {
+                            trait_type: "Creator Wealth".to_string(),
+                            value: "Modest".to_string(),
+                        });
+                    }
+
+                    // Add exact balance as an attribute
+                    attributes.push(Attribute {
+                        trait_type: "Creator Balance".to_string(),
+                        value: formatted_balance.to_string(),
+                    });
+                }
+                Err(e) => {
+                    eprintln!("Failed to query balance: {}", e);
+                    // Continue without balance info
+                }
+            };
 
             // Create NFT metadata
             let metadata = NFTMetadata {
@@ -105,24 +142,5 @@ impl Guest for Component {
         })
     }
 }
-
-// // Enum to specify the destination of the trigger
-// #[derive(Debug)]
-// pub enum Destination {
-//     Ethereum,
-//     CliOutput,
-// }
-
-// pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
-//     solidity::DataWithId { triggerId: trigger_id, data: output.as_ref().to_vec().into() }
-//         .abi_encode()
-// }
-
-// mod solidity {
-//     use alloy_sol_macro::sol;
-//     pub use ITypes::*;
-
-//     sol!("../../src/interfaces/ITypes.sol");
-// }
 
 export!(Component with_types_in bindings);
