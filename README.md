@@ -2,6 +2,8 @@
 
 **Template for getting started with developing building dynamic NFTs with WAVS.**
 
+This example demonstrates a simple dynamic NFT contract that can be minted / updated via an AVS.
+
 ## System Requirements
 
 <details>
@@ -175,11 +177,12 @@ Upload your service's trigger and submission contracts. The trigger contract is 
 
 ```bash
 export SERVICE_MANAGER_ADDR=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
-forge script ./script/DeployNft.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
+forge script ./script/Deploy.s.sol:Deploy ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
 > [!TIP]
-> You can see the deployed trigger address with `jq -r '.trigger' "./.docker/script_deploy.json"`
+> You can see the deployed NFT address with `jq -r '.nft' "./.docker/script_deploy.json"`,
+> the deployed minter address with `jq -r '.minter' "./.docker/script_deploy.json"`,
 > and the deployed submission address with `jq -r '.service_handler' "./.docker/script_deploy.json"`
 
 ## Deploy Service
@@ -194,35 +197,35 @@ Let's set these based on our recently run deployment script, and deploy the comp
 
 ```bash
 # Get deployed service trigger and submission contract addresses
-export SERVICE_TRIGGER_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
-export SERVICE_SUBMISSION_ADDR=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+export SERVICE_TRIGGER_ADDR=`jq -r '.minter' "./.docker/script_deploy.json"`
+export SERVICE_SUBMISSION_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
 
 # Deploy component
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="NewTrigger(bytes)" SERVICE_TRIGGER_ADDR=$SERVICE_TRIGGER_ADDR SERVICE_SUBMISSION_ADDR=$SERVICE_SUBMISSION_ADDR make deploy-service
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="AvsMintTrigger(address,string,uint256,uint8)" SERVICE_TRIGGER_ADDR=$SERVICE_TRIGGER_ADDR SERVICE_SUBMISSION_ADDR=$SERVICE_SUBMISSION_ADDR make deploy-service
 ```
 
 To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.
 
 ## Trigger the Service
 
-If you're in a new terminal, make sure you have `SERVICE_TRIGGER_ADDR` and `SERVICE_SUBMISSION_ADDR` environment variables set.
-
-```bash
-export SERVICE_TRIGGER_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
-export SERVICE_SUBMISSION_ADDR=`jq -r '.service_handler' "./.docker/script_deploy.json"`
-```
-
-Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
+If you're in a new terminal, make sure you have the environment set up. The script will automatically read the minter address from the deployment JSON file.
 
 ```bash
 export PROMPT="How do I become a great artist?"
-forge script ./script/TriggerNFT.s.sol ${SERVICE_TRIGGER_ADDR} "${PROMPT}" --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast
+forge script ./script/Trigger.s.sol:Trigger "${PROMPT}" --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
 ## Show the result
 
-Query the latest submission contract id from the previous request made, decode the base64.
+Query the latest NFT result using the show script:
 
 ```bash
-cast call $SERVICE_SUBMISSION_ADDR "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
+forge script ./script/Show.s.sol:ShowResults --rpc-url http://localhost:8545
+```
+
+Or manually query the NFT contract:
+
+```bash
+export NFT_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
+cast call $NFT_ADDR "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
 ```

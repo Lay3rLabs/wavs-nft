@@ -3,6 +3,14 @@ pragma solidity 0.8.22;
 
 interface ITypes {
     /**
+     * @notice Enum for trigger operation types
+     */
+    enum TriggerType {
+        MINT,
+        UPDATE
+    }
+
+    /**
      * @notice Struct to store trigger information
      * @param triggerId Unique identifier for the trigger
      * @param data Data associated with the triggerId
