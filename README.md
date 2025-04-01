@@ -1,8 +1,6 @@
-# [WAVS](https://docs.wavs.xyz) Monorepo Template
+# [WAVS](https://docs.wavs.xyz) NFT DEMO
 
-**Template for getting started with developing WAVS applications**
-
-A template for developing WebAssembly AVS applications using Rust and Solidity, configured for Windows _WSL_, Linux, and MacOS. The sample oracle service fetches the current price of a cryptocurrency from [CoinMarketCap](https://coinmarketcap.com) and saves it on chain.
+**Template for getting started with developing building dynamic NFTs with WAVS.**
 
 ## System Requirements
 
@@ -84,22 +82,28 @@ wkg config --default-registry wa.dev
 
 </details>
 
-## Create Project
+### Install Ollama
+
+This example use an LLM configured for determinism, run locally with Ollama. The model is llama3.1, but other open source models can be used if you change the config in `components/automous-artist/src`.
+
+For more information about AVSs and determinstic AI, see our [blog post on the subject](https://www.layer.xyz/news-and-insights/deterministic-ai).
+
+You can download Ollama here: https://ollama.com/
+
+Get the llama 3.1 model.
 
 ```bash
-# If you don't have foundry: `curl -L https://foundry.paradigm.xyz | bash && $HOME/.foundry/bin/foundryup`
-forge init --template Lay3rLabs/wavs-foundry-template my-wavs --branch 0.3
+ollama pull llama3.1
 ```
 
-> [!TIP]
-> Run `make help` to see all available commands and environment variable overrides.
+Note: in a production AVS environment, you would need to ship an AVS that bundles WAVS and Ollama together into a new docker image. More information on support for WAVS sidecars will be forthcoming in a future release.
 
 ### Solidity
 
 Install the required packages to build the Solidity contracts. This project supports both [submodules](./.gitmodules) and [npm packages](./package.json).
 
 ```bash
-# Install packages (npm & submodules)
+# Install packages (npm & forge submodules)
 make setup
 
 # Build the contracts
@@ -122,12 +126,14 @@ Now build the WASI rust components into the `compiled` output directory.
 make wasi-build # or `make build` to include solidity compilation.
 ```
 
+Note: under the hood this uses `cargo component build --release` for each component in the `components` directory and moves them to the `compiled` directory. See `Makefile` for more details.
+
 ### Execute WASI component directly
 
-Test run the component locally to validate the business logic works. An ID of 1 is Bitcoin. Nothing will be saved on-chain, just the output of the component is shown.
+Test run the component locally to validate the business logic works. Nothing will be saved on-chain, just the output of the component is shown.
 
 ```bash
-COIN_MARKET_CAP_ID=1 make wasi-exec
+PROMPT="How to become a great artist?" make wasi-exec
 ```
 
 ## WAVS
@@ -157,13 +163,19 @@ cp .env.example .env
 make start-all
 ```
 
+In a separate terminal, start Ollama:
+
+```
+ollama serve
+```
+
 ### Deploy Contract
 
 Upload your service's trigger and submission contracts. The trigger contract is where WAVS will watch for events, and the submission contract is where the AVS service operator will submit the result on chain.
 
 ```bash
 export SERVICE_MANAGER_ADDR=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
-forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
+forge script ./script/DeployNft.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
 > [!TIP]
@@ -172,26 +184,45 @@ forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" -
 
 ## Deploy Service
 
-Deploy the compiled component with the contracts from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
+Deploy the compiled component with the contracts from the previous steps. Review the [makefile](./Makefile) for more details.
+
+`TRIGGER_EVENT` is the event signature that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for even contracts others have deployed.
+
+The `SERVICE_SUBMISSION_ADDR` is the contract to which results from the AVS are submitted and implements the `IWavsServiceHandler` interface which is simply `function handleSignedData(bytes calldata data, bytes calldata signature) external`.
+
+Let's set these based on our recently run deployment script, and deploy the component.
 
 ```bash
-TRIGGER_EVENT="NewTrigger(bytes)" make deploy-service
+# Get deployed service trigger and submission contract addresses
+export SERVICE_TRIGGER_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
+export SERVICE_SUBMISSION_ADDR=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+
+# Deploy component
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="NewTrigger(bytes)" SERVICE_TRIGGER_ADDR=$SERVICE_TRIGGER_ADDR SERVICE_SUBMISSION_ADDR=$SERVICE_SUBMISSION_ADDR make deploy-service
 ```
 
+To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.
+
 ## Trigger the Service
+
+If you're in a new terminal, make sure you have `SERVICE_TRIGGER_ADDR` and `SERVICE_SUBMISSION_ADDR` environment variables set.
+
+```bash
+export SERVICE_TRIGGER_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
+export SERVICE_SUBMISSION_ADDR=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+```
 
 Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
 
 ```bash
-export SERVICE_TRIGGER_ADDR=`jq -r '.trigger' "./.docker/script_deploy.json"`
-forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast -v 4
+export PROMPT="How do I become a great artist?"
+forge script ./script/TriggerNFT.s.sol ${SERVICE_TRIGGER_ADDR} "${PROMPT}" --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
 ## Show the result
 
-Query the latest submission contract id from the previous request made.
+Query the latest submission contract id from the previous request made, decode the base64.
 
 ```bash
-# Get the latest TriggerId and show the result via `script/ShowResult.s.sol`
-forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} ${SERVICE_SUBMISSION_ADDR} --sig "run(string,string)" --rpc-url $(RPC_URL) --broadcast -v 4
+cast call $SERVICE_SUBMISSION_ADDR "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
 ```

@@ -44,13 +44,6 @@ contract DeployWavsNft is Common {
             _serviceManagerAddr
         );
         vm.writeFile(script_output_path, _finalJson);
-
-        // Write to .env file
-        vm.writeLine(
-            ".env",
-            string.concat("\nNFT_ADDRESS=", vm.toString(address(nft)))
-        );
-        console.log("Updated .env file with NFT_ADDRESS");
     }
 
     /**

@@ -7,7 +7,7 @@ SUDO := $(shell if groups | grep -q docker; then echo ''; else echo 'sudo'; fi)
 default: build
 
 # Customize these variables
-COMPONENT_FILENAME ?= eth_price_oracle.wasm
+COMPONENT_FILENAME ?= autonomous_artist.wasm
 TRIGGER_EVENT ?= NewTrigger(bytes)
 SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":[],"kv":[],"workflow_id":"default","component_id":"default"}'
 
@@ -19,7 +19,7 @@ RPC_URL?=http://localhost:8545
 SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
 SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
 SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
-COIN_MARKET_CAP_ID?=1
+PROMPT?="How to become a great artist?"
 
 ## check-requirements: verify system requirements are installed
 check-requirements: check-node check-jq check-cargo
@@ -40,7 +40,7 @@ wasi-build:
 wasi-exec:
 	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
 	--component "/data/compiled/${COMPONENT_FILENAME}" \
-	--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)`
+	--input "$(PROMPT)"
 
 ## update-submodules: update the git submodules
 update-submodules:

@@ -1,22 +1,17 @@
 use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
+use solidity::TriggerInfo;
 use wavs_wasi_chain::decode_event_log_data;
 
-pub enum Destination {
-    Ethereum,
-    CliOutput,
-}
-
-pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
+pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<TriggerInfo, String> {
     match trigger_data {
         TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-            let event: solidity::NewTrigger = decode_event_log_data!(log)?;
-            let trigger_info = solidity::TriggerInfo::abi_decode(&event._triggerInfo, false)?;
-            Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum))
+            let event: solidity::NewTrigger =
+                decode_event_log_data!(log).map_err(|e| e.to_string())?;
+            solidity::TriggerInfo::abi_decode(&event._0, false).map_err(|e| e.to_string())
         }
-        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
-        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
+        _ => Err("Unsupported trigger data type".to_string()),
     }
 }
 
@@ -29,5 +24,6 @@ mod solidity {
     use alloy_sol_macro::sol;
     pub use ITypes::*;
 
+    // imports DataWithId, TriggerInfo, NewTrigger, and TriggerId
     sol!("../../src/interfaces/ITypes.sol");
 }
