@@ -43,7 +43,7 @@ make start-all
 ### Deploy NFT contract
 
 ```bash
-forge script script/NFTDemo.s.sol:DeployNFTDemo --rpc-url http://localhost:8545 --broadcast
+forge script script/WavsNft.s.sol:DeployWavsNft --rpc-url http://localhost:8545 --broadcast
 
 # Load the created NFT address into the environment
 export NFT_ADDRESS=$(cat .env | grep NFT_ADDRESS | tail -1 | cut -d '=' -f 2)
@@ -58,7 +58,7 @@ COMPONENT_FILENAME=autonomous_artist.wasm SERVICE_TRIGGER_ADDR=$NFT_ADDRESS SERV
 ### Make a task
 
 ```bash
-forge script script/NFTDemo.s.sol:TriggerNFTDemo \
+forge script script/WavsNft.s.sol:TriggerWavsNft \
     --sig "run(string)" \
     "How can I be a great artist?" \
     --rpc-url "http://localhost:8545" \
@@ -68,5 +68,5 @@ forge script script/NFTDemo.s.sol:TriggerNFTDemo \
 ### Show the result
 
 ```bash
-forge script script/NFTDemo.s.sol:ShowLastResultNFTDemo --rpc-url "http://localhost:8545"
+forge script script/WavsNft.s.sol:ShowLastResultWavsNft --rpc-url "http://localhost:8545"
 ```

@@ -2,9 +2,11 @@
 pragma solidity ^0.8.22;
 
 import {Script} from "forge-std/Script.sol";
-import {WavsNft} from "../src/WavsNft.sol";
+import {console} from "forge-std/console.sol";
+import {WavsNft} from "../src/contracts/WavsNft.sol";
+import {Common} from "./Common.s.sol";
 
-contract ShowLastResultNFTDemo is Script {
+contract ShowLastResultWavsNft is Common {
     function run() public view {
         WavsNft nft = WavsNft(vm.envAddress("NFT_ADDRESS"));
 

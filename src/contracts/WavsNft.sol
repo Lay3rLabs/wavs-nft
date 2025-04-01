@@ -14,8 +14,7 @@ import {IWavsServiceHandler} from "@wavs/interfaces/IWavsServiceHandler.sol";
 import {IWavsServiceManager} from "@wavs/interfaces/IWavsServiceManager.sol";
 import {ITypes} from "interfaces/ITypes.sol";
 
-// TODO rename
-contract NFTDemo is
+contract WavsNft is
     ERC721,
     ERC721Enumerable,
     ERC721URIStorage,
