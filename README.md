@@ -20,14 +20,6 @@ The flow is:
 10. Aggregator agregates signatures and submits them on chain
 11. `handleSignedData` is called on the `WavsMinter.sol` contract, it deletes the Receipt
 
-TODO:
-
-- [ ] EVM Query example, use that to add a "rich" attribute
-- [ ] Generate an SVG
-- [ ] IPFS upload (ideally using a WAVS workflow)
-- [ ] Update instructions for running on two different chains
-- [ ] Update flow
-
 ## System Requirements
 
 <details>
