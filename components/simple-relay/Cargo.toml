@@ -1,0 +1,39 @@
+[package]
+name = "simple-relay"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+wavs-wasi-chain = { workspace = true }
+wstd = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+wit-bindgen-rt = { workspace = true, features = ["bitflags"] }
+alloy-sol-macro = { workspace = true }
+alloy-sol-types = { workspace = true }
+hex = "0.4.3"
+ethabi = "18.0.0"
+primitive-types = "0.13.1"
+alloy-primitives = "0.8.13"
+base64 = "0.22.1"
+
+[dev-dependencies]
+mockall = "0.11"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+debug = false
+strip = true
+lto = true
+
+[package.metadata.component]
+package = "component:simple-relay"
+target = "wavs:worker/layer-trigger-world@0.3.0-beta"

@@ -5,11 +5,12 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {WavsNft} from "../src/contracts/WavsNft.sol";
+import {WavsMinter} from "../src/contracts/WavsMinter.sol";
 import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 import {Common, EigenContracts} from "./Common.s.sol";
 
-/// @dev Deployment script for WavsNft contract
-contract DeployWavsNft is Common {
+/// @dev Deployment script for WavsNft and WavsNftMinter contracts
+contract Deploy is Common {
     using stdJson for string;
 
     string public root = vm.projectRoot();
@@ -19,25 +20,31 @@ contract DeployWavsNft is Common {
         string.concat(root, "/.docker/script_deploy.json");
 
     /**
-     * @dev Deploys the WavsNft contract and writes the results to a JSON file
+     * @dev Deploys the WavsNft and WavsNftMinter contracts and writes the results to a JSON file
      * @param _serviceManagerAddr The address of the service manager
      */
     function run(string calldata _serviceManagerAddr) public {
         vm.startBroadcast(_privateKey);
 
-        // Deploy the contract
+        // Deploy the NFT contract
         WavsNft nft = new WavsNft(vm.parseAddress(_serviceManagerAddr));
+
+        // Deploy the minter contract
+        WavsMinter minter = new WavsMinter(
+            vm.parseAddress(_serviceManagerAddr)
+        );
 
         vm.stopBroadcast();
 
-        // Log the deployment
+        // Log the deployments
         console.log("Service manager:", _serviceManagerAddr);
         console.log("WavsNft deployed at:", address(nft));
+        console.log("WavsMinter deployed at:", address(minter));
 
         // Write to JSON file
         string memory _json = "json";
         _json.serialize("nft", Strings.toHexString(address(nft)));
-        _json.serialize("trigger", Strings.toHexString(address(nft)));
+        _json.serialize("minter", Strings.toHexString(address(minter)));
         _json.serialize("service_handler", Strings.toHexString(address(nft)));
         string memory _finalJson = _json.serialize(
             "service_manager",

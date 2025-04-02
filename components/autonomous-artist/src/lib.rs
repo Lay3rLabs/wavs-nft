@@ -1,81 +1,92 @@
 #[allow(warnings)]
 mod bindings;
-use alloy_sol_types::{SolType, SolValue};
-use anyhow::Result;
+// TODO: Implement IPFS integration
+// mod ipfs;
+mod nft;
+mod ollama;
+
+use alloy_sol_macro::sol;
+use alloy_sol_types::SolValue;
 use base64;
 use base64::Engine;
-use bindings::{export, Guest, TriggerAction};
-use serde::{Deserialize, Serialize};
-use wstd::{
-    http::{Client, IntoBody, Request},
-    io::AsyncRead,
-    runtime::block_on,
+use bindings::{
+    export,
+    wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent},
+    Guest, TriggerAction,
 };
-mod trigger;
-use trigger::{decode_trigger_event, encode_trigger_output, Destination};
+use nft::{Attribute, NFTMetadata};
+use wavs_wasi_chain::decode_event_log_data;
+use wstd::runtime::block_on;
 
-// NFT Metadata structure
-#[derive(Serialize, Debug)]
-struct NFTMetadata {
-    name: String,
-    description: String,
-    image: String,
-    attributes: Vec<Attribute>,
-}
+// Use the sol! macro to import needed solidity types
+// You can write solidity code in the macro and it will be available in the component
+// Or you can import the types from a solidity file with sol!("../path/to/file.sol");
+sol! {
+    // Keep type definitions for internal use
+    type TriggerId is uint64;
 
-#[derive(Serialize, Debug)]
-struct Attribute {
-    trait_type: String,
-    value: String,
-}
+    enum TriggerType {
+        MINT,
+        UPDATE
+    }
 
-// Ollama response structures
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-enum OllamaChatResponse {
-    Success(OllamaChatSuccessResponse),
-    Error { error: String },
-}
+    #[derive(Debug)]
+    struct WavsMintResult {
+        TriggerId triggerId;
+        address recipient;
+        string tokenURI;
+    }
 
-#[derive(Deserialize, Debug)]
-struct OllamaChatSuccessResponse {
-    message: OllamaChatMessage,
-}
-
-#[derive(Deserialize, Debug)]
-struct OllamaChatMessage {
-    content: String,
+    // Refactor event to use primitive types
+    event AvsMintTrigger(
+        address indexed sender,
+        string prompt,
+        uint64 indexed triggerId,
+        uint8 triggerType
+    );
 }
 
 struct Component;
 
 impl Guest for Component {
+    /// @dev This function is called when a WAVS trigger action is fired.
     fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
         // Decode the trigger event
-        let (trigger_id, prompt, destination) =
-            decode_trigger_event(action.data).map_err(|e| e.to_string())?;
+        let AvsMintTrigger { sender, prompt, triggerId, triggerType: _ } = match action.data {
+            // Fired from an Ethereum contract event.
+            TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
+                decode_event_log_data!(log)
+                    .map_err(|e| format!("Failed to decode event log data: {}", e))
+            }
+            // Fired from a raw data event (e.g. from a CLI command or from another component).
+            TriggerData::Raw(_) => {
+                unimplemented!("Raw data is not supported yet");
+            }
+            _ => Err("Unsupported trigger data type".to_string()),
+        }?;
 
-        eprintln!("Processing Trigger ID: {}", trigger_id);
-        eprintln!("Prompt: {}", String::from_utf8_lossy(&prompt));
+        eprintln!("Processing Trigger ID: {}", triggerId);
+        eprintln!("Prompt: {}", &prompt);
 
         block_on(async move {
-            // Decode the ABI-encoded string first
-            let decoded = alloy_sol_types::sol_data::String::abi_decode(&prompt, false)
-                .map_err(|e| format!("Failed to decode ABI string: {}", e))?;
-
             // Query Ollama
-            let response = query_ollama(&decoded.to_string()).await?;
+            let response = ollama::query_ollama(&prompt).await?;
             eprintln!("Response: {}", response);
+
+            // Check the creator's ETH balance
+            let sender_address = sender.to_string();
+            eprintln!("Checking balance for address: {}", sender_address);
+
+            let attributes = vec![Attribute { trait_type: "Prompt".to_string(), value: prompt }];
+
+            // TODO Query ETH balance and add a "wealth" attribute if balance > 1 ETH
 
             // Create NFT metadata
             let metadata = NFTMetadata {
                 name: "AI Generated NFT".to_string(),
                 description: response.to_string(),
                 image: "ipfs://placeholder".to_string(),
-                attributes: vec![Attribute {
-                    trait_type: "Prompt".to_string(),
-                    value: decoded.to_string(),
-                }],
+                attributes,
             };
             eprintln!("Metadata: {:?}", metadata);
 
@@ -88,124 +99,15 @@ impl Guest for Component {
             );
             eprintln!("Data URI: {}", data_uri);
 
-            let output = match destination {
-                Destination::Ethereum => {
-                    Some(encode_trigger_output(trigger_id, data_uri.abi_encode()))
+            Ok(Some(
+                WavsMintResult {
+                    triggerId: triggerId.into(),
+                    recipient: sender,
+                    tokenURI: data_uri,
                 }
-                Destination::CliOutput => Some(data_uri.into_bytes()),
-            };
-
-            Ok(output)
+                .abi_encode(),
+            ))
         })
-    }
-}
-
-async fn query_ollama(prompt: &str) -> Result<String, String> {
-    // TODO experiment with generate endpoint
-    let req = Request::post("http://localhost:11434/api/chat")
-        .body(
-            serde_json::to_vec(&serde_json::json!({
-                // https://github.com/ollama/ollama/blob/main/docs/api.md
-                "model": "llama3.1",
-                "messages": [{
-                    "role": "system",
-                    "content": "You are an Avante Garde philosopher, Gilles Deleuze. Write only in Haiku."
-                }, {
-                    "role": "user",
-                    "content": prompt
-                }],
-
-                // TODO: figure out how to use this, prompt should mention structured output
-                // "format": "json",
-
-                // Structured output control (haven't figured out how to use this yet)
-                // "format": {
-                //     "type": "object",
-                //     "properties": {
-                //         "name": { "type": "string" },
-                //         "description": { "type": "string" },
-                //     },
-                //     "required": ["name", "description"]
-                // },
-
-                // Core options for deterministic output
-                "options": {
-                    // Sampling strategy (deterministic focus)
-                    "temperature": 0.0,        // [0.0-2.0] 0.0 for most deterministic
-                    "top_k": 1,               // [1-100] 1 for strict selection
-                    "top_p": 0.1,             // [0.0-1.0] 0.1 for narrow sampling
-                    "min_p": 0.0,             // [0.0-1.0] Alternative to top_p (disabled)
-
-                    // Repetition control
-                    // "repeat_last_n": 64,      // [-1, 0-N] tokens to look back (-1 = num_ctx)
-                    // "repeat_penalty": 1.2,     // [0.0-2.0] Higher = less repetition
-
-                    // Mirostat sampling (alternative to temperature)
-                    // "mirostat": 0,         // [0-2] 0=disabled, 1=v1, 2=v2
-                    // "mirostat_tau": 5.0,   // [0.0-10.0] Lower = more focused
-                    // "mirostat_eta": 0.1,   // [0.0-1.0] Learning rate
-
-                    // Context and length control
-                    "num_ctx": 4096,          // [512-8192] Context window size
-                    // TODO bump this number when we can support higher per service gas configs
-                    "num_predict": 75,       // [-1, 1-N] Max tokens to generate (-1 = infinite)
-
-                    // Stop sequences (model-specific)
-                    // "stop": [
-                    //     "\n\n",              // Common stop
-                    //     "###",               // Common stop
-                    //     "<|im_start|>",      // Chat format
-                    //     "<|im_end|>",        // Chat format
-                    //     "```",               // Code blocks
-                    //     "USER:",             // Chat roles
-                    //     "ASSISTANT:"         // Chat roles
-                    // ],
-
-                    // Deterministic generation
-                    "seed": 42,              // Fixed seed for reproducibility
-
-                    // System resource management
-                    // "num_thread": 8,         // CPU threads to use
-                    // "num_gpu": 1,            // Number of GPUs to use
-                    // "num_batch": 2,       // Batch size for prompt processing
-                    // "num_keep": 5,        // Number of tokens to keep from initial prompt
-
-                    // Memory management
-                    // "low_vram": false,    // Optimize for low VRAM GPUs
-                    // "main_gpu": 0,        // Main GPU index
-                    // "numa": false,        // NUMA acceleration
-                    // "use_mmap": true,     // Memory-mapped I/O
-                    // "use_mlock": false,   // Lock memory
-                },
-
-                // API behavior
-                "stream": false,             // No streaming for consistent response
-                // "keep_alive": "5m",         // Model keep-alive duration
-
-                // Raw mode (bypass template system)
-                // "raw": true,             // Enable if using custom prompt format
-            }))
-            .unwrap()
-            .into_body(),
-        )
-        .unwrap();
-
-    let mut res = Client::new().send(req).await.map_err(|e| e.to_string())?;
-
-    if res.status() != 200 {
-        return Err(format!("Ollama API error: status {}", res.status()));
-    }
-
-    let mut body_buf = Vec::new();
-    res.body_mut().read_to_end(&mut body_buf).await.unwrap();
-
-    let resp = String::from_utf8_lossy(&body_buf);
-    let resp = serde_json::from_str::<OllamaChatResponse>(format!(r#"{}"#, resp).as_str());
-
-    match resp {
-        Ok(OllamaChatResponse::Success(success)) => Ok(success.message.content),
-        Ok(OllamaChatResponse::Error { error }) => Err(error),
-        Err(e) => Err(format!("Failed to parse response: {}", e)),
     }
 }
 

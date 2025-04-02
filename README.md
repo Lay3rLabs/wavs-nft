@@ -2,6 +2,32 @@
 
 **Template for getting started with developing building dynamic NFTs with WAVS.**
 
+This example demonstrates a simple Dynamic NFT + Minter contract that can even communicate with each other cross-chain.
+
+There are two conracts `WavsNft.sol` and `WavsMinter.sol`, as well as two components `autonomous-artist` and `simple-relay`.
+
+The flow is:
+
+1. User pays minter contract which emits an `AvsMintTrigger` event
+2. WAVS listens for event and triggers the registered WASI component
+3. `autonomous-artist` component runs and outputs an NFT tokenURI
+4. WAVS operators sign output with their keys and send results to aggregator
+5. Aggregator agregates signatures and puts results on chain
+6. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `NFTMinted` event.
+7. WAVS listens for event and triggers the registered WASI component
+8. `simple-relay` component runs an outputs the TriggerId that has been completed
+9. Operators sign output
+10. Aggregator agregates signatures and submits them on chain
+11. `handleSignedData` is called on the `WavsMinter.sol` contract, it deletes the Receipt
+
+TODO:
+
+- [ ] EVM Query example, use that to add a "rich" attribute
+- [ ] Generate an SVG
+- [ ] IPFS upload (ideally using a WAVS workflow)
+- [ ] Update instructions for running on two different chains
+- [ ] Update flow
+
 ## System Requirements
 
 <details>
@@ -175,54 +201,63 @@ Upload your service's trigger and submission contracts. The trigger contract is 
 
 ```bash
 export SERVICE_MANAGER_ADDR=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
-forge script ./script/DeployNft.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
+forge script ./script/Deploy.s.sol:Deploy ${SERVICE_MANAGER_ADDR} --sig "run(string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
 > [!TIP]
-> You can see the deployed trigger address with `jq -r '.trigger' "./.docker/script_deploy.json"`
+> You can see the deployed NFT address with `jq -r '.nft' "./.docker/script_deploy.json"`,
+> the deployed minter address with `jq -r '.minter' "./.docker/script_deploy.json"`,
 > and the deployed submission address with `jq -r '.service_handler' "./.docker/script_deploy.json"`
 
-## Deploy Service
+### Deploy Service
 
 Deploy the compiled component with the contracts from the previous steps. Review the [makefile](./Makefile) for more details.
 
-`TRIGGER_EVENT` is the event signature that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for even contracts others have deployed.
+TRIGGER_EVENT is the event signature that the trigger contract emits and WAVS watches for. By altering SERVICE_TRIGGER_ADDR you can watch events for even contracts others have deployed.
 
-The `SERVICE_SUBMISSION_ADDR` is the contract to which results from the AVS are submitted and implements the `IWavsServiceHandler` interface which is simply `function handleSignedData(bytes calldata data, bytes calldata signature) external`.
+The SERVICE_SUBMISSION_ADDR is the contract to which results from the AVS are submitted and implements the IWavsServiceHandler interface which is simply `function handleSignedData(bytes calldata data, bytes calldata signature) external`.
 
 Let's set these based on our recently run deployment script, and deploy the component.
 
 ```bash
 # Get deployed service trigger and submission contract addresses
-export SERVICE_TRIGGER_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
-export SERVICE_SUBMISSION_ADDR=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+export WAVS_MINTER=`jq -r '.minter' "./.docker/script_deploy.json"`
+export WAVS_NFT=`jq -r '.nft' "./.docker/script_deploy.json"`
 
-# Deploy component
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="NewTrigger(bytes)" SERVICE_TRIGGER_ADDR=$SERVICE_TRIGGER_ADDR SERVICE_SUBMISSION_ADDR=$SERVICE_SUBMISSION_ADDR make deploy-service
+# Deploy autonmous artist component
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="AvsMintTrigger(address,string,uint64,uint8)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
+
+# Deploy simple relayer component
+COMPONENT_FILENAME=simple_relay.wasm TRIGGER_EVENT="NFTMinted(address,uint256,string,uint64)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_MINTER make deploy-service
 ```
 
 To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.
 
-## Trigger the Service
-
-If you're in a new terminal, make sure you have `SERVICE_TRIGGER_ADDR` and `SERVICE_SUBMISSION_ADDR` environment variables set.
+### Trigger the Service
 
 ```bash
-export SERVICE_TRIGGER_ADDR=`jq -r '.nft' "./.docker/script_deploy.json"`
-export SERVICE_SUBMISSION_ADDR=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+# Run the trigger script with the minter address and prompt
+forge script ./script/Trigger.s.sol:Trigger $WAVS_MINTER "How do I become a great Artist?" \
+  --sig "run(address,string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
-Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
+### Show the results
+
+After triggering the service, you can check the status of both the NFT and the mint receipts using the Show script:
 
 ```bash
-export PROMPT="How do I become a great artist?"
-forge script ./script/TriggerNFT.s.sol ${SERVICE_TRIGGER_ADDR} "${PROMPT}" --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast
+# Run the show script with the NFT and minter addresses
+forge script ./script/Show.s.sol:ShowResults $WAVS_NFT $WAVS_MINTER \
+  --sig "run(address,address)" --rpc-url http://localhost:8545
 ```
 
-## Show the result
+This will display information about:
 
-Query the latest submission contract id from the previous request made, decode the base64.
+- The last minted NFT (including its tokenURI and how to decode it)
+- All mint receipts in the system (including whether they're fulfilled)
+
+You can also check and decode the NFT's token URI directly in one line:
 
 ```bash
-cast call $SERVICE_SUBMISSION_ADDR "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
+cast call $WAVS_NFT "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
 ```

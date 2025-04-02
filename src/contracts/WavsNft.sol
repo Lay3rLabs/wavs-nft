@@ -26,24 +26,32 @@ contract WavsNft is
     IWavsServiceHandler
 {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-
-    mapping(ITypes.TriggerId => Trigger) public triggersById;
-    mapping(address => ITypes.TriggerId[]) public triggerIdsByCreator;
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     IWavsServiceManager public serviceManager;
     ITypes.TriggerId public nextTriggerId;
     uint256 public nextTokenId;
 
+    struct WavsMintResult {
+        ITypes.TriggerId triggerId;
+        address recipient;
+        string tokenURI;
+    }
+
+    // // TODO support updates
+    // struct WavsUpdateResult {
+    //     ITypes.TriggerId triggerId;
+    //     string tokenURI;
+    //     uint256 tokenId;
+    // }
+
+    // Event emitted when an NFT is minted via the AVS
     event NFTMinted(
         address indexed to,
         uint256 indexed tokenId,
-        string dataUri
+        string dataUri,
+        uint64 triggerId
     );
-
-    struct Trigger {
-        address creator;
-        bytes data;
-    }
 
     constructor(
         address serviceManager_
@@ -53,6 +61,7 @@ contract WavsNft is
         // TODO consider what the permissions of this contract should be
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
 
         serviceManager = IWavsServiceManager(serviceManager_);
     }
@@ -66,46 +75,6 @@ contract WavsNft is
     }
 
     /**
-     * @notice Add a new trigger.
-     * @param data The request data (bytes).
-     */
-    function addTrigger(
-        bytes memory data
-    ) external payable returns (ITypes.TriggerId triggerId) {
-        require(msg.value == 0.1 ether, "Payment must be exactly 0.1 ETH");
-
-        // Get the next trigger ID
-        triggerId = nextTriggerId;
-        nextTriggerId = ITypes.TriggerId.wrap(
-            ITypes.TriggerId.unwrap(nextTriggerId) + 1
-        );
-
-        // Create the trigger
-        Trigger memory trigger = Trigger({creator: msg.sender, data: data});
-
-        // update storages
-        triggersById[triggerId] = trigger;
-        triggerIdsByCreator[msg.sender].push(triggerId);
-
-        ITypes.TriggerInfo memory triggerInfo = ITypes.TriggerInfo({
-            triggerId: triggerId,
-            creator: trigger.creator,
-            data: trigger.data
-        });
-
-        emit ITypes.NewTrigger(abi.encode(triggerInfo));
-    }
-
-    // Add this function to allow withdrawal of collected fees
-    function withdrawFees() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No balance to withdraw");
-
-        (bool success, ) = payable(msg.sender).call{value: balance}("");
-        require(success, "Transfer failed");
-    }
-
-    /**
      * @notice Handle the signed AVS output data.
      * @param data The data to handle.
      * @param signature The signature of the data.
@@ -114,56 +83,28 @@ contract WavsNft is
         bytes calldata data,
         bytes calldata signature
     ) external override {
+        // Validate the data and signature via the service manager
         serviceManager.validate(data, signature);
 
-        ITypes.DataWithId memory dataWithId = abi.decode(
-            data,
-            (ITypes.DataWithId)
-        );
+        // Decode the data to get the mint result
+        WavsMintResult memory mintResult = abi.decode(data, (WavsMintResult));
 
-        Trigger memory trigger = triggersById[dataWithId.triggerId];
-        require(trigger.creator != address(0), "Trigger does not exist");
-        require(dataWithId.data.length > 0, "URI is empty");
-
-        string memory dataUri = abi.decode(dataWithId.data, (string));
+        // Increment the tokenId
         uint256 tokenId = nextTokenId++;
 
-        _safeMint(trigger.creator, tokenId);
-        _setTokenURI(tokenId, dataUri);
+        // Mint the NFT
+        _safeMint(mintResult.recipient, tokenId);
 
-        emit NFTMinted(trigger.creator, tokenId, dataUri);
-    }
+        // Set the tokenURI
+        _setTokenURI(tokenId, mintResult.tokenURI);
 
-    /**
-     * @notice Get a single trigger by triggerId.
-     * @param triggerId The identifier of the trigger.
-     */
-    function getTrigger(
-        ITypes.TriggerId triggerId
-    ) public view returns (ITypes.TriggerInfo memory) {
-        Trigger storage trigger = triggersById[triggerId];
-
-        return
-            ITypes.TriggerInfo({
-                triggerId: triggerId,
-                creator: trigger.creator,
-                data: trigger.data
-            });
-    }
-
-    function getTriggerCount(address creator) external view returns (uint256) {
-        return triggerIdsByCreator[creator].length;
-    }
-
-    function getTriggerIdAtIndex(
-        address creator,
-        uint256 index
-    ) external view returns (ITypes.TriggerId) {
-        require(
-            index < triggerIdsByCreator[creator].length,
-            "Index out of bounds"
+        // Emit event to notify the minter contract that the mint has been fulfilled
+        emit NFTMinted(
+            mintResult.recipient,
+            tokenId,
+            mintResult.tokenURI,
+            ITypes.TriggerId.unwrap(mintResult.triggerId)
         );
-        return triggerIdsByCreator[creator][index];
     }
 
     // Add tokenURI override
@@ -211,7 +152,6 @@ contract WavsNft is
         return "mode=timestamp";
     }
 
-    // Do we need this?
     function _setTokenURI(
         uint256 tokenId,
         string memory _tokenURI
