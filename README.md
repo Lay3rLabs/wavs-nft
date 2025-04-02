@@ -100,6 +100,8 @@ wkg config --default-registry wa.dev
 
 </details>
 
+<details>
+<summary>Install Ollama</summary>
 ### Install Ollama
 
 This example use an LLM configured for determinism, run locally with Ollama. The model is llama3.1, but other open source models can be used if you change the config in `components/automous-artist/src`.
@@ -115,6 +117,8 @@ ollama pull llama3.1
 ```
 
 Note: in a production AVS environment, you would need to ship an AVS that bundles WAVS and Ollama together into a new docker image. More information on support for WAVS sidecars will be forthcoming in a future release.
+
+</details>
 
 ### Solidity
 
