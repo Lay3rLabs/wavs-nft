@@ -43,4 +43,4 @@ Finally, the component serializes the metadata to JSON and converts it to a data
   - Recipient (sender's address)
   - Token URI containing the metadata
 
-This data will be minted as an NFT by the [`WavsNft.sol`](/src/contracts/WavsNft.sol) contract.
+The data is then ready to be minted as an NFT by the [`WavsNft.sol`](/src/contracts/WavsNft.sol) contract.
