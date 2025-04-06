@@ -24,10 +24,9 @@ impl Guest for Component {
                 let WavsNftMint { triggerId, .. } = decode_event_log_data!(log)
                     .map_err(|e| format!("Failed to decode event log data: {}", e))?;
 
-                eprintln!("Processing Trigger ID: {}", triggerId);
+                eprintln!("Fulfilling Trigger ID: {}", triggerId);
 
                 // Return the ABI-encoded triggerId
-                // Ok(Some(TriggerId(triggerId).abi_encode()))
                 Ok(Some(triggerId.abi_encode()))
             }
             _ => Err("Unsupported trigger data".to_string()),

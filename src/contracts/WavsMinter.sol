@@ -37,7 +37,8 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
         address indexed sender,
         string prompt,
         uint64 indexed triggerId,
-        uint8 wavsTriggerType
+        uint8 wavsTriggerType,
+        uint256 tokenId
     );
 
     // Event emitted when a mint is fulfilled
@@ -94,7 +95,8 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
             msg.sender,
             prompt,
             IWavsNftServiceTypes.TriggerId.unwrap(triggerId),
-            uint8(IWavsNftServiceTypes.WavsTriggerType.MINT)
+            uint8(IWavsNftServiceTypes.WavsTriggerType.MINT),
+            0 // tokenId is 0 for mints, the AVS ignores this value for minting
         );
 
         return triggerId;

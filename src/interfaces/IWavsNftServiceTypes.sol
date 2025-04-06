@@ -16,8 +16,7 @@ interface IWavsNftServiceTypes {
      */
     enum WavsTriggerType {
         MINT,
-        UPDATE,
-        FULFILLMENT
+        UPDATE
     }
 
     /**
@@ -31,6 +30,22 @@ interface IWavsNftServiceTypes {
         WavsTriggerType wavsTriggerType;
         bytes data;
     }
+
+    /**
+     * @notice Event emitted when a mint/update is triggered
+     * @param sender The address that triggered the mint
+     * @param prompt The text prompt for AI generation
+     * @param triggerId The ID of the trigger
+     * @param wavsTriggerType The type of trigger
+     * @param tokenId The ID of the NFT, for new mints, this is ignored by the AVS
+     */
+    event WavsNftTrigger(
+        address indexed sender,
+        string prompt,
+        uint64 indexed triggerId,
+        uint8 wavsTriggerType,
+        uint256 tokenId
+    );
 
     /**
      * @notice Event emitted when an NFT is minted via the AVS
@@ -48,30 +63,16 @@ interface IWavsNftServiceTypes {
 
     /**
      * @notice Event emitted when an NFT is updated via the AVS
-     * @param to The recipient of the NFT
+     * @param owner The owner of the NFT that has been updated
      * @param tokenId The ID of the minted NFT
      * @param tokenURI The URI of the NFT data
      * @param triggerId The ID of the trigger that initiated the mint
      */
     event WavsNftUpdate(
-        address indexed to,
+        address indexed owner,
         uint256 indexed tokenId,
         string tokenURI,
         uint64 triggerId
-    );
-
-    /**
-     * @notice Event emitted when a mint/update is triggered
-     * @param sender The address that triggered the mint
-     * @param prompt The text prompt for AI generation
-     * @param triggerId The ID of the trigger
-     * @param wavsTriggerType The type of trigger
-     */
-    event WavsNftTrigger(
-        address indexed sender,
-        string prompt,
-        uint64 indexed triggerId,
-        uint8 wavsTriggerType
     );
 
     /**
@@ -100,6 +101,7 @@ interface IWavsNftServiceTypes {
      */
     struct WavsUpdateResult {
         TriggerId triggerId;
+        address owner;
         string tokenURI;
         uint256 tokenId;
     }

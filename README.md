@@ -220,11 +220,14 @@ Let's set these based on our recently run deployment script, and deploy the comp
 export WAVS_MINTER=`jq -r '.minter' "./.docker/script_deploy.json"`
 export WAVS_NFT=`jq -r '.nft' "./.docker/script_deploy.json"`
 
-# Deploy autonmous artist component
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
+# Deploy autonmous artist component for the minting flow. Triggered here by the WavsMinter.sol contract
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8,uint256)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
 
-# Deploy simple relayer component
+# Deploy simple relayer component, triggered by successful minting from the WavsNft.sol contract
 COMPONENT_FILENAME=simple_relay.wasm TRIGGER_EVENT="WavsNftMint(address,uint256,string,uint64)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_MINTER make deploy-service
+
+# Deploy autonmous artist component for the update flow. Triggered here by the WavsNft.sol contract
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8,uint256)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
 ```
 
 To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.
@@ -232,8 +235,8 @@ To see all options for deploying services, run `make wavs-cli -- deploy-service 
 ### Trigger the Service
 
 ```bash
-# Run the trigger script with the minter address and prompt
-forge script ./script/Trigger.s.sol:Trigger $WAVS_MINTER "How do I become a great Artist?" \
+# Run the mint script with the minter address and prompt
+forge script ./script/Mint.s.sol:Trigger $WAVS_MINTER "How do I become a great Artist?" \
   --sig "run(address,string)" --rpc-url http://localhost:8545 --broadcast
 ```
 
@@ -257,3 +260,22 @@ You can also check and decode the NFT's token URI directly in one line:
 ```bash
 cast call $WAVS_NFT "tokenURI(uint256)(string)" 0 | grep -o 'base64,[^"]*' | cut -d',' -f2 | base64 -d | jq
 ```
+
+### Update an NFT
+
+You can update an existing NFT using the Update script. This will trigger the autonomous artist component to generate new content based on your prompt.
+
+```bash
+# Run the update script with the NFT address, token ID, and new prompt
+forge script ./script/Update.s.sol:Update $WAVS_NFT 0 "How do I become a great Engineer?" \
+  --sig "run(address,uint256,string)" --rpc-url http://localhost:8545 --broadcast
+```
+
+This will:
+
+1. Send the update fee (currently 0.01 ETH) to the contract
+2. Trigger the update process
+3. Emit the `WavsNftTrigger` event with the tokenId parameter
+4. The WAVS service will pick up the event and process the update
+5. The NFT's tokenURI will be updated with the new AI-generated content
+6. Use the queries above to see updated NFT `tokenURI`

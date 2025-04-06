@@ -32,18 +32,19 @@ impl Guest for Component {
     /// @dev This function is called when a WAVS trigger action is fired.
     fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
         // Decode the trigger event
-        let WavsNftTrigger { sender, prompt, triggerId, wavsTriggerType: _ } = match action.data {
-            // Fired from an Ethereum contract event.
-            TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                decode_event_log_data!(log)
-                    .map_err(|e| format!("Failed to decode event log data: {}", e))
-            }
-            // Fired from a raw data event (e.g. from a CLI command or from another component).
-            TriggerData::Raw(_) => {
-                unimplemented!("Raw data is not supported yet");
-            }
-            _ => Err("Unsupported trigger data type".to_string()),
-        }?;
+        let WavsNftTrigger { sender, prompt, triggerId, wavsTriggerType, tokenId } =
+            match action.data {
+                // Fired from an Ethereum contract event.
+                TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
+                    decode_event_log_data!(log)
+                        .map_err(|e| format!("Failed to decode event log data: {}", e))
+                }
+                // Fired from a raw data event (e.g. from a CLI command or from another component).
+                TriggerData::Raw(_) => {
+                    unimplemented!("Raw data is not supported yet");
+                }
+                _ => Err("Unsupported trigger data type".to_string()),
+            }?;
 
         eprintln!("Processing Trigger ID: {}", triggerId);
         eprintln!("Prompt: {}", &prompt);
@@ -79,16 +80,32 @@ impl Guest for Component {
             );
             eprintln!("Data URI: {}", data_uri);
 
-            let output = WavsResponse {
-                triggerId,
-                wavsTriggerType: WavsTriggerType::MINT,
-                data: WavsMintResult {
-                    triggerId: triggerId.into(),
-                    recipient: sender,
-                    tokenURI: data_uri,
-                }
-                .abi_encode()
-                .into(),
+            // Create the output based on the trigger type
+            let output = match wavsTriggerType {
+                0 => WavsResponse {
+                    wavsTriggerType: WavsTriggerType::MINT,
+                    triggerId,
+                    data: WavsMintResult {
+                        triggerId: triggerId.into(),
+                        recipient: sender,
+                        tokenURI: data_uri,
+                    }
+                    .abi_encode()
+                    .into(),
+                },
+                1 => WavsResponse {
+                    wavsTriggerType: WavsTriggerType::UPDATE,
+                    triggerId,
+                    data: WavsUpdateResult {
+                        triggerId: triggerId.into(),
+                        owner: sender,
+                        tokenURI: data_uri,
+                        tokenId,
+                    }
+                    .abi_encode()
+                    .into(),
+                },
+                _ => return Err("Invalid trigger type".to_string()),
             };
 
             Ok(Some(output.abi_encode()))
