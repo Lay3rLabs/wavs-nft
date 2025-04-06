@@ -1,7 +1,6 @@
 #[allow(warnings)]
 mod bindings;
-// TODO: Implement IPFS integration
-// mod ipfs;
+mod ipfs;
 mod nft;
 mod ollama;
 
@@ -66,19 +65,44 @@ impl Guest for Component {
             let metadata = NFTMetadata {
                 name: "AI Generated NFT".to_string(),
                 description: response.to_string(),
-                image: "ipfs://placeholder".to_string(),
+                image: "ipfs://placeholder".to_string(), // Will be updated with real IPFS URI
                 attributes,
             };
             eprintln!("Metadata: {:?}", metadata);
 
-            // Serialize to JSON and convert to data URI
+            // Get IPFS URL from environment or use default
+            let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
+                .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
+
+            // Try to generate an image based on the prompt (this part is optional)
+            // In a full implementation, you might use an AI model to generate an image
+            // For now, we'll skip this part
+
+            // Serialize metadata to JSON for IPFS upload
             let json = serde_json::to_string(&metadata)
                 .map_err(|e| format!("JSON serialization error: {}", e))?;
-            let data_uri = format!(
-                "data:application/json;base64,{}",
-                base64::engine::general_purpose::STANDARD.encode(json)
-            );
-            eprintln!("Data URI: {}", data_uri);
+
+            // Upload metadata to IPFS
+            let token_uri = match ipfs::upload_nft_content(
+                "application/json",
+                json.as_bytes(),
+                &ipfs_url,
+            )
+            .await
+            {
+                Ok(ipfs_uri) => {
+                    eprintln!("Uploaded metadata to IPFS: {}", ipfs_uri);
+                    ipfs_uri
+                }
+                Err(e) => {
+                    eprintln!("Failed to upload to IPFS, falling back to data URI: {}", e);
+                    // Fall back to data URI if IPFS upload fails
+                    format!(
+                        "data:application/json;base64,{}",
+                        base64::engine::general_purpose::STANDARD.encode(json)
+                    )
+                }
+            };
 
             // Create the output based on the trigger type
             let output = match wavsTriggerType {
@@ -88,7 +112,7 @@ impl Guest for Component {
                     data: WavsMintResult {
                         triggerId: triggerId.into(),
                         recipient: sender,
-                        tokenURI: data_uri,
+                        tokenURI: token_uri,
                     }
                     .abi_encode()
                     .into(),
@@ -99,7 +123,7 @@ impl Guest for Component {
                     data: WavsUpdateResult {
                         triggerId: triggerId.into(),
                         owner: sender,
-                        tokenURI: data_uri,
+                        tokenURI: token_uri,
                         tokenId,
                     }
                     .abi_encode()

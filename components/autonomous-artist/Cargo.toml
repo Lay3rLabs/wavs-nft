@@ -20,6 +20,8 @@ ethabi = "18.0.0"
 primitive-types = "0.13.1"
 alloy-primitives = "0.8.13"
 base64 = "0.22.1"
+cid = "0.10.1"
+multihash = "0.18.1"
 
 [dev-dependencies]
 mockall = "0.11"
