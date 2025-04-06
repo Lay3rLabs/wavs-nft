@@ -20,32 +20,12 @@ use wstd::runtime::block_on;
 
 // Use the sol! macro to import needed solidity types
 // You can write solidity code in the macro and it will be available in the component
-// Or you can import the types from a solidity file with sol!("../path/to/file.sol");
-sol! {
-    // Keep type definitions for internal use
-    type TriggerId is uint64;
+// Or you can import the types from a solidity file.
+sol!("../../src/interfaces/IWavsNftServiceTypes.sol");
 
-    enum TriggerType {
-        MINT,
-        UPDATE
-    }
-
-    #[derive(Debug)]
-    struct WavsMintResult {
-        TriggerId triggerId;
-        address recipient;
-        string tokenURI;
-    }
-
-    // Refactor event to use primitive types
-    event AvsMintTrigger(
-        address indexed sender,
-        string prompt,
-        uint64 indexed triggerId,
-        uint8 triggerType
-    );
-}
-
+use crate::IWavsNftServiceTypes::{
+    AvsMintTrigger, TriggerType, WavsMintResult, WavsResponse, WavsUpdateResult,
+};
 struct Component;
 
 impl Guest for Component {
@@ -99,14 +79,19 @@ impl Guest for Component {
             );
             eprintln!("Data URI: {}", data_uri);
 
-            Ok(Some(
-                WavsMintResult {
+            let output = WavsResponse {
+                triggerId,
+                triggerType: TriggerType::MINT,
+                data: WavsMintResult {
                     triggerId: triggerId.into(),
                     recipient: sender,
                     tokenURI: data_uri,
                 }
-                .abi_encode(),
-            ))
+                .abi_encode()
+                .into(),
+            };
+
+            Ok(Some(output.abi_encode()))
         })
     }
 }

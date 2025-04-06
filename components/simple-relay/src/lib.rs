@@ -12,7 +12,7 @@ sol! {
     type TriggerId is uint64;
 
     #[derive(Debug)]
-    event NFTMinted(
+    event NftMintedViaWavs(
         address indexed to,
         uint256 indexed tokenId,
         string dataUri,
@@ -27,7 +27,7 @@ impl Guest for Component {
         match trigger_action.data {
             TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
                 // Decode the NewTrigger event to get the _triggerInfo bytes
-                let NFTMinted { triggerId, .. } = decode_event_log_data!(log)
+                let NftMintedViaWavs { triggerId, .. } = decode_event_log_data!(log)
                     .map_err(|e| format!("Failed to decode event log data: {}", e))?;
 
                 eprintln!("Processing Trigger ID: {}", triggerId);

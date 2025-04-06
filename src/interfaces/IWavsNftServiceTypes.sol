@@ -7,6 +7,11 @@ pragma solidity 0.8.22;
  */
 interface IWavsNftServiceTypes {
     /**
+     * @notice TriggerId is a unique identifier for a trigger
+     */
+    type TriggerId is uint64;
+
+    /**
      * @notice Enum for trigger operation types
      */
     enum TriggerType {
@@ -15,33 +20,17 @@ interface IWavsNftServiceTypes {
         FULFILLMENT
     }
 
-    // /**
-    //  * @notice Struct to store trigger information
-    //  * @param triggerId Unique identifier for the trigger
-    //  * @param data Data associated with the triggerId
-    //  */
-    // struct DataWithId {
-    //     TriggerId triggerId;
-    //     bytes data;
-    // }
-
-    // /**
-    //  * @notice Struct to store trigger information
-    //  * @param triggerId Unique identifier for the trigger
-    //  * @param creator Address of the creator of the trigger
-    //  * @param data Data associated with the trigger
-    //  */
-    // struct TriggerInfo {
-    //     TriggerId triggerId;
-    //     address creator;
-    //     bytes data;
-    // }
-
     /**
-     * @notice Event emitted when a new trigger is created
-     * @param _triggerInfo Encoded TriggerInfo struct
+     * @notice Struct to store the WAVS response data
+     * @param triggerId The trigger ID
+     * @param triggerType The type of trigger
+     * @param data Contains WavsMintResult or WavsUpdateResult
      */
-    event NewTrigger(bytes _triggerInfo);
+    struct WavsResponse {
+        TriggerId triggerId;
+        TriggerType triggerType;
+        bytes data;
+    }
 
     /**
      * @notice Event emitted when an NFT is minted via the AVS
@@ -76,23 +65,6 @@ interface IWavsNftServiceTypes {
      * @param triggerId The ID of the fulfilled trigger
      */
     event MintFulfilled(TriggerId indexed triggerId);
-
-    /**
-     * @notice TriggerId is a unique identifier for a trigger
-     */
-    type TriggerId is uint64;
-
-    /**
-     * @notice Struct to store the WAVS response data
-     * @param triggerId The trigger ID
-     * @param triggerType The type of trigger
-     * @param data Contains WavsMintResult or WavsUpdateResult
-     */
-    struct WavsResponse {
-        TriggerId triggerId;
-        TriggerType triggerType;
-        bytes data;
-    }
 
     /**
      * @notice Struct to store the result of a mint operation

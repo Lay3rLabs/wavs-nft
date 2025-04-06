@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Votes.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {IWavsServiceHandler} from "@wavs/interfaces/IWavsServiceHandler.sol";
 import {IWavsServiceManager} from "@wavs/interfaces/IWavsServiceManager.sol";
-import {ITypes} from "interfaces/ITypes.sol";
+import {IWavsNftServiceTypes} from "interfaces/IWavsNftServiceTypes.sol";
 
 contract WavsNft is
     ERC721,
@@ -29,29 +29,8 @@ contract WavsNft is
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     IWavsServiceManager public serviceManager;
-    ITypes.TriggerId public nextTriggerId;
+    IWavsNftServiceTypes.TriggerId public nextTriggerId;
     uint256 public nextTokenId;
-
-    struct WavsMintResult {
-        ITypes.TriggerId triggerId;
-        address recipient;
-        string tokenURI;
-    }
-
-    // // TODO support updates
-    // struct WavsUpdateResult {
-    //     ITypes.TriggerId triggerId;
-    //     string tokenURI;
-    //     uint256 tokenId;
-    // }
-
-    // Event emitted when an NFT is minted via the AVS
-    event NFTMinted(
-        address indexed to,
-        uint256 indexed tokenId,
-        string dataUri,
-        uint64 triggerId
-    );
 
     constructor(
         address serviceManager_
@@ -87,24 +66,48 @@ contract WavsNft is
         serviceManager.validate(data, signature);
 
         // Decode the data to get the mint result
-        WavsMintResult memory mintResult = abi.decode(data, (WavsMintResult));
-
-        // Increment the tokenId
-        uint256 tokenId = nextTokenId++;
-
-        // Mint the NFT
-        _safeMint(mintResult.recipient, tokenId);
-
-        // Set the tokenURI
-        _setTokenURI(tokenId, mintResult.tokenURI);
-
-        // Emit event to notify the minter contract that the mint has been fulfilled
-        emit NFTMinted(
-            mintResult.recipient,
-            tokenId,
-            mintResult.tokenURI,
-            ITypes.TriggerId.unwrap(mintResult.triggerId)
+        IWavsNftServiceTypes.WavsResponse memory wavsResponse = abi.decode(
+            data,
+            (IWavsNftServiceTypes.WavsResponse)
         );
+
+        // Handle the mint or update by checking the trigger type
+        if (wavsResponse.triggerType == IWavsNftServiceTypes.TriggerType.MINT) {
+            // Decode the mint info
+            IWavsNftServiceTypes.WavsMintResult memory mintResult = abi.decode(
+                wavsResponse.data,
+                (IWavsNftServiceTypes.WavsMintResult)
+            );
+
+            // Increment the tokenId
+            uint256 tokenId = nextTokenId++;
+
+            // Mint the NFT
+            _safeMint(mintResult.recipient, tokenId);
+
+            // Set the tokenURI
+            _setTokenURI(tokenId, mintResult.tokenURI);
+
+            // Emit event to notify the minter contract that the mint has been fulfilled
+            emit IWavsNftServiceTypes.NftMintedViaWavs(
+                mintResult.recipient,
+                tokenId,
+                mintResult.tokenURI,
+                IWavsNftServiceTypes.TriggerId.unwrap(mintResult.triggerId)
+            );
+        } else if (
+            wavsResponse.triggerType == IWavsNftServiceTypes.TriggerType.UPDATE
+        ) {
+            // Decode the update info
+            IWavsNftServiceTypes.WavsUpdateResult memory updateResult = abi
+                .decode(
+                    wavsResponse.data,
+                    (IWavsNftServiceTypes.WavsUpdateResult)
+                );
+
+            // Update the tokenURI
+            _setTokenURI(updateResult.tokenId, updateResult.tokenURI);
+        }
     }
 
     // Add tokenURI override

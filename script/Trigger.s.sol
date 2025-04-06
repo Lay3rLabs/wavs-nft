@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {WavsMinter} from "../src/contracts/WavsMinter.sol";
-import {ITypes} from "../src/interfaces/ITypes.sol";
+import {IWavsNftServiceTypes} from "../src/interfaces/IWavsNftServiceTypes.sol";
 import {Common} from "./Common.s.sol";
 import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 
@@ -29,7 +29,9 @@ contract Trigger is Common {
         vm.stopBroadcast();
 
         // Get the trigger ID (it will be 0 for the first trigger)
-        ITypes.TriggerId triggerId = ITypes.TriggerId.wrap(0);
+        IWavsNftServiceTypes.TriggerId triggerId = IWavsNftServiceTypes
+            .TriggerId
+            .wrap(0);
 
         // Fetch and log the trigger metadata
         WavsMinter.Receipt memory metadata = minter.getTrigger(triggerId);

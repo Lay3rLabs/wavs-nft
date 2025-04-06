@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {WavsNft} from "../src/contracts/WavsNft.sol";
 import {WavsMinter} from "../src/contracts/WavsMinter.sol";
-import {ITypes} from "../src/interfaces/ITypes.sol";
+import {IWavsNftServiceTypes} from "../src/interfaces/IWavsNftServiceTypes.sol";
 import {Common} from "./Common.s.sol";
 import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 
@@ -55,15 +55,21 @@ contract ShowResults is Common {
         }
 
         // Display minter receipts information
-        ITypes.TriggerId nextTriggerId = minter.nextTriggerId();
-        if (ITypes.TriggerId.unwrap(nextTriggerId) == 0) {
+        IWavsNftServiceTypes.TriggerId nextTriggerId = minter.nextTriggerId();
+        if (IWavsNftServiceTypes.TriggerId.unwrap(nextTriggerId) == 0) {
             console.log("No triggers created yet");
             return;
         }
 
         // Display information for all triggers
-        for (uint64 i = 0; i < ITypes.TriggerId.unwrap(nextTriggerId); i++) {
-            ITypes.TriggerId triggerId = ITypes.TriggerId.wrap(i);
+        for (
+            uint64 i = 0;
+            i < IWavsNftServiceTypes.TriggerId.unwrap(nextTriggerId);
+            i++
+        ) {
+            IWavsNftServiceTypes.TriggerId triggerId = IWavsNftServiceTypes
+                .TriggerId
+                .wrap(i);
             WavsMinter.Receipt memory receipt = minter.getTrigger(triggerId);
 
             // Only display if there's a valid creator address
