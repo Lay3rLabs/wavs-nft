@@ -80,7 +80,7 @@ contract ShowResults is Common {
                     Strings.toHexString(uint160(receipt.creator))
                 );
                 console.log("Prompt:", receipt.prompt);
-                console.log("Type:", uint8(receipt.triggerType));
+                console.log("Type:", uint8(receipt.wavsTriggerType));
                 console.log("Fulfilled:", receipt.fulfilled);
             }
         }

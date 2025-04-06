@@ -38,6 +38,6 @@ contract Trigger is Common {
 
         console.log("Trigger created by:", metadata.creator);
         console.log("Trigger message:", metadata.prompt);
-        console.log("Trigger type:", uint8(metadata.triggerType));
+        console.log("Trigger type:", uint8(metadata.wavsTriggerType));
     }
 }

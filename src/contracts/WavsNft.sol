@@ -72,7 +72,10 @@ contract WavsNft is
         );
 
         // Handle the mint or update by checking the trigger type
-        if (wavsResponse.triggerType == IWavsNftServiceTypes.TriggerType.MINT) {
+        if (
+            wavsResponse.wavsTriggerType ==
+            IWavsNftServiceTypes.WavsTriggerType.MINT
+        ) {
             // Decode the mint info
             IWavsNftServiceTypes.WavsMintResult memory mintResult = abi.decode(
                 wavsResponse.data,
@@ -89,14 +92,15 @@ contract WavsNft is
             _setTokenURI(tokenId, mintResult.tokenURI);
 
             // Emit event to notify the minter contract that the mint has been fulfilled
-            emit IWavsNftServiceTypes.NftMintedViaWavs(
+            emit IWavsNftServiceTypes.WavsNftMint(
                 mintResult.recipient,
                 tokenId,
                 mintResult.tokenURI,
                 IWavsNftServiceTypes.TriggerId.unwrap(mintResult.triggerId)
             );
         } else if (
-            wavsResponse.triggerType == IWavsNftServiceTypes.TriggerType.UPDATE
+            wavsResponse.wavsTriggerType ==
+            IWavsNftServiceTypes.WavsTriggerType.UPDATE
         ) {
             // Decode the update info
             IWavsNftServiceTypes.WavsUpdateResult memory updateResult = abi

@@ -14,7 +14,7 @@ interface IWavsNftServiceTypes {
     /**
      * @notice Enum for trigger operation types
      */
-    enum TriggerType {
+    enum WavsTriggerType {
         MINT,
         UPDATE,
         FULFILLMENT
@@ -23,12 +23,12 @@ interface IWavsNftServiceTypes {
     /**
      * @notice Struct to store the WAVS response data
      * @param triggerId The trigger ID
-     * @param triggerType The type of trigger
+     * @param wavsTriggerType The type of trigger
      * @param data Contains WavsMintResult or WavsUpdateResult
      */
     struct WavsResponse {
         TriggerId triggerId;
-        TriggerType triggerType;
+        WavsTriggerType wavsTriggerType;
         bytes data;
     }
 
@@ -36,13 +36,27 @@ interface IWavsNftServiceTypes {
      * @notice Event emitted when an NFT is minted via the AVS
      * @param to The recipient of the NFT
      * @param tokenId The ID of the minted NFT
-     * @param dataUri The URI of the NFT data
+     * @param tokenURI The URI of the NFT data
      * @param triggerId The ID of the trigger that initiated the mint
      */
-    event NftMintedViaWavs(
+    event WavsNftMint(
         address indexed to,
         uint256 indexed tokenId,
-        string dataUri,
+        string tokenURI,
+        uint64 triggerId
+    );
+
+    /**
+     * @notice Event emitted when an NFT is updated via the AVS
+     * @param to The recipient of the NFT
+     * @param tokenId The ID of the minted NFT
+     * @param tokenURI The URI of the NFT data
+     * @param triggerId The ID of the trigger that initiated the mint
+     */
+    event WavsNftUpdate(
+        address indexed to,
+        uint256 indexed tokenId,
+        string tokenURI,
         uint64 triggerId
     );
 
@@ -51,13 +65,13 @@ interface IWavsNftServiceTypes {
      * @param sender The address that triggered the mint
      * @param prompt The text prompt for AI generation
      * @param triggerId The ID of the trigger
-     * @param triggerType The type of trigger
+     * @param wavsTriggerType The type of trigger
      */
-    event AvsMintTrigger(
+    event WavsNftTrigger(
         address indexed sender,
         string prompt,
         uint64 indexed triggerId,
-        uint8 triggerType
+        uint8 wavsTriggerType
     );
 
     /**

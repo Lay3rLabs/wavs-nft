@@ -24,7 +24,7 @@ use wstd::runtime::block_on;
 sol!("../../src/interfaces/IWavsNftServiceTypes.sol");
 
 use crate::IWavsNftServiceTypes::{
-    AvsMintTrigger, TriggerType, WavsMintResult, WavsResponse, WavsUpdateResult,
+    WavsMintResult, WavsNftTrigger, WavsResponse, WavsTriggerType, WavsUpdateResult,
 };
 struct Component;
 
@@ -32,7 +32,7 @@ impl Guest for Component {
     /// @dev This function is called when a WAVS trigger action is fired.
     fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
         // Decode the trigger event
-        let AvsMintTrigger { sender, prompt, triggerId, triggerType: _ } = match action.data {
+        let WavsNftTrigger { sender, prompt, triggerId, wavsTriggerType: _ } = match action.data {
             // Fired from an Ethereum contract event.
             TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
                 decode_event_log_data!(log)
@@ -81,7 +81,7 @@ impl Guest for Component {
 
             let output = WavsResponse {
                 triggerId,
-                triggerType: TriggerType::MINT,
+                wavsTriggerType: WavsTriggerType::MINT,
                 data: WavsMintResult {
                     triggerId: triggerId.into(),
                     recipient: sender,

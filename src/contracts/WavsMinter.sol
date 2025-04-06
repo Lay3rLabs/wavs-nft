@@ -28,16 +28,16 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     struct Receipt {
         address creator;
         string prompt;
-        IWavsNftServiceTypes.TriggerType triggerType;
+        IWavsNftServiceTypes.WavsTriggerType wavsTriggerType;
         bool fulfilled;
     }
 
     // Event emitted when a mint/update is triggered
-    event AvsMintTrigger(
+    event WavsNftTrigger(
         address indexed sender,
         string prompt,
         uint64 indexed triggerId,
-        uint8 triggerType
+        uint8 wavsTriggerType
     );
 
     // Event emitted when a mint is fulfilled
@@ -76,7 +76,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
         receipts[triggerId] = Receipt({
             creator: msg.sender,
             prompt: prompt,
-            triggerType: IWavsNftServiceTypes.TriggerType.MINT,
+            wavsTriggerType: IWavsNftServiceTypes.WavsTriggerType.MINT,
             fulfilled: false
         });
 
@@ -89,12 +89,12 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
             require(refundSuccess, "Failed to refund excess");
         }
 
-        // Emit the AvsMintTrigger event
-        emit AvsMintTrigger(
+        // Emit the WavsNftTrigger event
+        emit WavsNftTrigger(
             msg.sender,
             prompt,
             IWavsNftServiceTypes.TriggerId.unwrap(triggerId),
-            uint8(IWavsNftServiceTypes.TriggerType.MINT)
+            uint8(IWavsNftServiceTypes.WavsTriggerType.MINT)
         );
 
         return triggerId;

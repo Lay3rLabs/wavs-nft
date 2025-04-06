@@ -8,12 +8,12 @@ There are two conracts `WavsNft.sol` and `WavsMinter.sol`, as well as two compon
 
 The flow is:
 
-1. User pays minter contract which emits an `AvsMintTrigger` event
+1. User pays minter contract which emits an `WavsNftTrigger` event
 2. WAVS listens for event and triggers the registered WASI component
 3. `autonomous-artist` component runs and outputs an NFT tokenURI
 4. WAVS operators sign output with their keys and send results to aggregator
 5. Aggregator agregates signatures and puts results on chain
-6. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `NftMintedViaWavs` event.
+6. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `WavsNftMint` event.
 7. WAVS listens for event and triggers the registered WASI component
 8. `simple-relay` component runs an outputs the TriggerId that has been completed
 9. Operators sign output
@@ -221,10 +221,10 @@ export WAVS_MINTER=`jq -r '.minter' "./.docker/script_deploy.json"`
 export WAVS_NFT=`jq -r '.nft' "./.docker/script_deploy.json"`
 
 # Deploy autonmous artist component
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="AvsMintTrigger(address,string,uint64,uint8)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
+COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
 
 # Deploy simple relayer component
-COMPONENT_FILENAME=simple_relay.wasm TRIGGER_EVENT="NftMintedViaWavs(address,uint256,string,uint64)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_MINTER make deploy-service
+COMPONENT_FILENAME=simple_relay.wasm TRIGGER_EVENT="WavsNftMint(address,uint256,string,uint64)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_MINTER make deploy-service
 ```
 
 To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.
