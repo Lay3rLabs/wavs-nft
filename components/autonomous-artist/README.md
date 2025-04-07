@@ -9,7 +9,8 @@ The Autonomous Artist component is designed to create NFTs with AI-generated con
 ## Run Ollama locally
 
 ```bash
-ollama run llama3.1
+ollama pull llama3.1
+ollama serve
 ```
 
 ## How It Works
