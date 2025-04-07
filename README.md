@@ -4,7 +4,7 @@
 
 This example demonstrates a simple Dynamic NFT + Minter contract that can even communicate with each other cross-chain.
 
-There are two conracts `WavsNft.sol` and `WavsMinter.sol`, as well as two components `autonomous-artist` and `simple-relay`.
+There are two contracts [`WavsNft.sol`](./src/contracts/WavsNft.sol) and [`WavsMinter.sol`](./src/contracts/WavsMinter.sol), as well as two components [`autonomous-artist`](./components/autonomous-artist/) and [`simple-relay`](./components/simple-relay/).
 
 The flow is:
 
@@ -17,7 +17,7 @@ The flow is:
 7. WAVS listens for event and triggers the registered WASI component
 8. `simple-relay` component runs an outputs the TriggerId that has been completed
 9. Operators sign output
-10. Aggregator agregates signatures and submits them on chain
+10. Aggregator aggregates signatures and submits them on chain
 11. `handleSignedData` is called on the `WavsMinter.sol` contract, it deletes the Receipt
 
 ## System Requirements
@@ -106,7 +106,7 @@ wkg config --default-registry wa.dev
 
 This example use an LLM configured for determinism, run locally with Ollama. The model is llama3.1, but other open source models can be used if you change the config in `components/automous-artist/src`.
 
-For more information about AVSs and determinstic AI, see our [blog post on the subject](https://www.layer.xyz/news-and-insights/deterministic-ai).
+For more information about AVSs and deterministic AI, see our [blog post on the subject](https://www.layer.xyz/news-and-insights/deterministic-ai).
 
 You can download Ollama here: https://ollama.com/
 
@@ -173,7 +173,7 @@ PROMPT="How to become a great artist?" make wasi-exec
 
 ### Start Environment
 
-Start an ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
+Start an Ethereum node (anvil), the WAVS service, and deploy [EigenLayer](https://www.eigenlayer.xyz/) contracts to the local network.
 
 ```bash
 cp .env.example .env
@@ -209,9 +209,9 @@ forge script ./script/Deploy.s.sol:Deploy ${SERVICE_MANAGER_ADDR} --sig "run(str
 
 Deploy the compiled component with the contracts from the previous steps. Review the [makefile](./Makefile) for more details.
 
-TRIGGER_EVENT is the event signature that the trigger contract emits and WAVS watches for. By altering SERVICE_TRIGGER_ADDR you can watch events for even contracts others have deployed.
+`TRIGGER_EVENT` is the event signature that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for even contracts others have deployed.
 
-The SERVICE_SUBMISSION_ADDR is the contract to which results from the AVS are submitted and implements the IWavsServiceHandler interface which is simply `function handleSignedData(bytes calldata data, bytes calldata signature) external`.
+The `SERVICE_SUBMISSION_ADDR` is the contract to which results from the AVS are submitted and implements the `IWavsServiceHandler` interface which is simply `function handleSignedData(bytes calldata data, bytes calldata signature) external`.
 
 Let's set these based on our recently run deployment script, and deploy the component.
 
