@@ -27,7 +27,10 @@ contract Deploy is Common {
         vm.startBroadcast(_privateKey);
 
         // Deploy the NFT contract
-        WavsNft nft = new WavsNft(vm.parseAddress(_serviceManagerAddr));
+        WavsNft nft = new WavsNft(
+            vm.parseAddress(_serviceManagerAddr),
+            msg.sender // Use deployer as funds recipient
+        );
 
         // Deploy the minter contract
         WavsMinter minter = new WavsMinter(

@@ -3,7 +3,7 @@ pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {ITypes} from "interfaces/ITypes.sol";
+import {IWavsNftServiceTypes} from "interfaces/IWavsNftServiceTypes.sol";
 import {IWavsServiceHandler} from "@wavs/interfaces/IWavsServiceHandler.sol";
 import {IWavsServiceManager} from "@wavs/interfaces/IWavsServiceManager.sol";
 
@@ -16,32 +16,33 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     uint256 public mintPrice = 0.1 ether;
 
     // Mapping to store additional metadata for each trigger
-    mapping(ITypes.TriggerId => Receipt) public receipts;
+    mapping(IWavsNftServiceTypes.TriggerId => Receipt) public receipts;
 
     // Interface to the WAVS service manager
     IWavsServiceManager public serviceManager;
 
     // Auto-incrementing trigger ID counter
-    ITypes.TriggerId public nextTriggerId;
+    IWavsNftServiceTypes.TriggerId public nextTriggerId;
 
     // Structure to hold metadata about the trigger
     struct Receipt {
         address creator;
         string prompt;
-        ITypes.TriggerType triggerType;
+        IWavsNftServiceTypes.WavsTriggerType wavsTriggerType;
         bool fulfilled;
     }
 
     // Event emitted when a mint/update is triggered
-    event AvsMintTrigger(
+    event WavsNftTrigger(
         address indexed sender,
         string prompt,
         uint64 indexed triggerId,
-        uint8 triggerType
+        uint8 wavsTriggerType,
+        uint256 tokenId
     );
 
     // Event emitted when a mint is fulfilled
-    event MintFulfilled(ITypes.TriggerId indexed triggerId);
+    event MintFulfilled(IWavsNftServiceTypes.TriggerId indexed triggerId);
 
     // Event emitted when mint price is updated
     event MintPriceUpdated(uint256 newPrice);
@@ -63,20 +64,20 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
      */
     function triggerMint(
         string calldata prompt
-    ) external payable nonReentrant returns (ITypes.TriggerId) {
+    ) external payable nonReentrant returns (IWavsNftServiceTypes.TriggerId) {
         require(msg.value >= mintPrice, "Insufficient payment");
 
         // Get the next trigger ID and increment the counter
-        ITypes.TriggerId triggerId = nextTriggerId;
-        nextTriggerId = ITypes.TriggerId.wrap(
-            ITypes.TriggerId.unwrap(nextTriggerId) + 1
+        IWavsNftServiceTypes.TriggerId triggerId = nextTriggerId;
+        nextTriggerId = IWavsNftServiceTypes.TriggerId.wrap(
+            IWavsNftServiceTypes.TriggerId.unwrap(nextTriggerId) + 1
         );
 
         // Store metadata for this mint request
         receipts[triggerId] = Receipt({
             creator: msg.sender,
             prompt: prompt,
-            triggerType: ITypes.TriggerType.MINT,
+            wavsTriggerType: IWavsNftServiceTypes.WavsTriggerType.MINT,
             fulfilled: false
         });
 
@@ -89,12 +90,13 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
             require(refundSuccess, "Failed to refund excess");
         }
 
-        // Emit the AvsMintTrigger event
-        emit AvsMintTrigger(
+        // Emit the WavsNftTrigger event
+        emit WavsNftTrigger(
             msg.sender,
             prompt,
-            ITypes.TriggerId.unwrap(triggerId),
-            uint8(ITypes.TriggerType.MINT)
+            IWavsNftServiceTypes.TriggerId.unwrap(triggerId),
+            uint8(IWavsNftServiceTypes.WavsTriggerType.MINT),
+            0 // tokenId is 0 for mints, the AVS ignores this value for minting
         );
 
         return triggerId;
@@ -111,7 +113,10 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     ) external override {
         serviceManager.validate(data, signature);
 
-        ITypes.TriggerId triggerId = abi.decode(data, (ITypes.TriggerId));
+        IWavsNftServiceTypes.TriggerId triggerId = abi.decode(
+            data,
+            (IWavsNftServiceTypes.TriggerId)
+        );
 
         // Check if the trigger exists and is not already fulfilled
         require(
@@ -155,7 +160,7 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
      * @return The trigger metadata struct
      */
     function getTrigger(
-        ITypes.TriggerId triggerId
+        IWavsNftServiceTypes.TriggerId triggerId
     ) external view returns (Receipt memory) {
         return receipts[triggerId];
     }
