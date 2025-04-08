@@ -31,6 +31,8 @@ async fn upload_to_ipfs(file_path: &str, ipfs_url: &str) -> Result<IpfsResponse>
     let api_key = std::env::var("WAVS_ENV_LIGHTHOUSE_API_KEY")
         .map_err(|e| anyhow::anyhow!("Failed to get API key: {}", e))?;
 
+    eprintln!("Uploading file to IPFS: {}", file_path);
+
     let mut file = File::open(file_path)?;
     let mut file_bytes = Vec::new();
     file.read_to_end(&mut file_bytes)?;
@@ -60,28 +62,104 @@ async fn upload_to_ipfs(file_path: &str, ipfs_url: &str) -> Result<IpfsResponse>
     if response.status().is_success() {
         let mut body_buf = Vec::new();
         response.body_mut().read_to_end(&mut body_buf).await?;
-        let ipfs_response: IpfsResponse = serde_json::from_slice(&body_buf)?;
-        Ok(ipfs_response)
+
+        // Log the raw response for debugging
+        let response_str = std::str::from_utf8(&body_buf)
+            .map_err(|e| anyhow::anyhow!("Failed to convert response to string: {}", e))?;
+        eprintln!("IPFS API Response: {}", response_str);
+
+        // Parse using Lighthouse's response format (capitalized fields)
+        let lighthouse_response: LighthouseResponse = match serde_json::from_slice(&body_buf) {
+            Ok(resp) => resp,
+            Err(e) => {
+                // Simple fallback - just look for the hash in the response text
+                eprintln!("Failed to parse response: {}", e);
+
+                if let Some(start) = response_str.find("\"Hash\":\"") {
+                    if let Some(end) = response_str[start + 8..].find("\"") {
+                        let hash = &response_str[start + 8..start + 8 + end];
+                        return Ok(IpfsResponse {
+                            hash: hash.to_string(),
+                            name: Path::new(file_path)
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string(),
+                            size: "0".to_string(),
+                        });
+                    }
+                }
+
+                // If that fails too, try lowercase
+                if let Some(start) = response_str.find("\"hash\":\"") {
+                    if let Some(end) = response_str[start + 8..].find("\"") {
+                        let hash = &response_str[start + 8..start + 8 + end];
+                        return Ok(IpfsResponse {
+                            hash: hash.to_string(),
+                            name: Path::new(file_path)
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string(),
+                            size: "0".to_string(),
+                        });
+                    }
+                }
+
+                return Err(anyhow::anyhow!(
+                    "Could not extract hash from response: {}",
+                    response_str
+                ));
+            }
+        };
+
+        // Convert to our standard response format
+        Ok(IpfsResponse {
+            hash: lighthouse_response.Hash,
+            name: lighthouse_response.Name,
+            size: lighthouse_response.Size,
+        })
     } else {
-        Err(anyhow::anyhow!("Failed to upload to IPFS. Status: {:?}", response.status()))
+        let mut body_buf = Vec::new();
+        response.body_mut().read_to_end(&mut body_buf).await?;
+        let error_body = std::str::from_utf8(&body_buf).unwrap_or("unable to read error body");
+        Err(anyhow::anyhow!(
+            "Failed to upload to IPFS. Status: {:?}, Body: {}",
+            response.status(),
+            error_body
+        ))
     }
 }
 
 #[derive(Debug, Deserialize)]
+struct LighthouseResponse {
+    Hash: String,
+    #[serde(default)]
+    Name: String,
+    #[serde(default)]
+    Size: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct IpfsResponse {
+    #[serde(default)]
     name: String,
     hash: String,
+    #[serde(default)]
     size: String,
 }
 
 /// Uploads JSON data directly to IPFS and returns the CID
 pub async fn upload_json_to_ipfs(json_data: &str, ipfs_url: &str) -> Result<String> {
     // Create a temporary file to store the JSON data
-    let temp_filename = format!(
-        "temp_json_{}.json",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()
-    );
-    let temp_path = format!("/tmp/{}", temp_filename);
+    let filename = "nft_metadata.json".to_string();
+    let temp_path = format!("/tmp/{}", filename);
+
+    eprint!("Temp path {}", temp_path);
+
+    // Ensure the /tmp directory exists
+    std::fs::create_dir_all("/tmp")
+        .map_err(|e| anyhow::anyhow!("Failed to create /tmp directory: {}", e))?;
 
     // Write JSON to temporary file
     let mut file = File::create(&temp_path)?;
@@ -93,8 +171,8 @@ pub async fn upload_json_to_ipfs(json_data: &str, ipfs_url: &str) -> Result<Stri
     // Clean up the temporary file
     delete_file(&temp_path)?;
 
-    // Return the CID (hash)
-    Ok(response.hash)
+    // Return the IPFS URI
+    Ok(get_ipfs_url(&response.hash, Some(&filename)))
 }
 
 /// Uploads an image to IPFS and returns the CID
@@ -106,6 +184,10 @@ pub async fn upload_image_to_ipfs(
     // Create a temporary file to store the image data
     let temp_path = format!("/tmp/{}", filename);
 
+    // Ensure the /tmp directory exists
+    std::fs::create_dir_all("/tmp")
+        .map_err(|e| anyhow::anyhow!("Failed to create /tmp directory: {}", e))?;
+
     // Write image data to temporary file
     let mut file = File::create(&temp_path)?;
     file.write_all(image_data)?;
@@ -116,8 +198,8 @@ pub async fn upload_image_to_ipfs(
     // Clean up the temporary file
     delete_file(&temp_path)?;
 
-    // Return the CID (hash)
-    Ok(response.hash)
+    // Return the IPFS URI
+    Ok(get_ipfs_url(&response.hash, Some(filename)))
 }
 
 /// Calculate the CID for file content without uploading
@@ -141,8 +223,12 @@ pub fn delete_file(file_path: &str) -> Result<()> {
 }
 
 /// Get IPFS URL from CID
-pub fn get_ipfs_url(cid: &str) -> String {
-    format!("ipfs://{}", cid)
+/// If filename is provided, constructs a URL that points to a file within a directory
+pub fn get_ipfs_url(cid: &str, filename: Option<&str>) -> String {
+    match filename {
+        Some(name) => format!("ipfs://{}/{}", cid, name),
+        None => format!("ipfs://{}", cid),
+    }
 }
 
 /// Get HTTP gateway URL from CID
@@ -158,19 +244,13 @@ pub async fn upload_nft_content(
     ipfs_url: &str,
 ) -> Result<String> {
     // Determine if this is JSON metadata or an image
-    let (filename, cid) = if content_type.contains("json") || content_type == "application/json" {
+    let ipfs_uri = if content_type.contains("json") || content_type == "application/json" {
         // It's JSON metadata
         let json_str = std::str::from_utf8(content)
             .map_err(|e| anyhow::anyhow!("Failed to convert JSON bytes to string: {}", e))?;
 
-        let filename = format!(
-            "nft_metadata_{}.json",
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()
-        );
-
-        // Upload the JSON
-        let cid = upload_json_to_ipfs(json_str, ipfs_url).await?;
-        (filename, cid)
+        // Upload the JSON and return the IPFS URI
+        upload_json_to_ipfs(json_str, ipfs_url).await?
     } else {
         // It's an image or other binary content
         let extension = match content_type {
@@ -181,20 +261,15 @@ pub async fn upload_nft_content(
             _ => "bin", // Default extension for unknown types
         };
 
-        let filename = format!(
-            "nft_image_{}.{}",
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs(),
-            extension
-        );
+        let filename = format!("nft_image.{}", extension);
 
-        // Upload the image
-        let cid = upload_image_to_ipfs(content, &filename, ipfs_url).await?;
-        (filename, cid)
+        // Upload the image and return the IPFS URI
+        upload_image_to_ipfs(content, &filename, ipfs_url).await?
     };
 
     // Log the upload
-    println!("Uploaded {} to IPFS with CID: {}", filename, cid);
+    println!("Uploaded to IPFS with URI: {}", ipfs_uri);
 
-    // Return IPFS URI
-    Ok(get_ipfs_url(&cid))
+    // Return IPFS URI with filename to handle directory structure
+    Ok(ipfs_uri)
 }
