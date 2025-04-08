@@ -1,11 +1,9 @@
-use std::io::Read;
-
 use crate::bindings::host::get_eth_chain_config;
-use alloy_network::{AnyNetwork, Ethereum, Network};
-use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_network::Ethereum;
+use alloy_primitives::{Address, TxKind, U256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types::TransactionInput;
-use alloy_sol_types::{sol, SolCall, SolType, SolValue};
+use alloy_sol_types::{sol, SolCall};
 use wavs_wasi_chain::ethereum::new_eth_provider;
 
 sol! {

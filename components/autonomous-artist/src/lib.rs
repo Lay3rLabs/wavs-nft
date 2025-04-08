@@ -14,9 +14,7 @@ use base64;
 use base64::Engine;
 use bindings::{
     export,
-    wavs::worker::layer_types::{
-        TriggerData, TriggerDataEthContractEvent, TriggerSource, TriggerSourceEthContractEvent,
-    },
+    wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent},
     Guest, TriggerAction,
 };
 use evm::query_nft_ownership;
