@@ -1,6 +1,7 @@
 #[allow(warnings)]
 mod bindings;
 mod evm;
+mod image;
 mod ipfs;
 mod nft;
 mod ollama;
@@ -63,7 +64,7 @@ impl Guest for Component {
             eprintln!("Checking balance for address: {}", sender_address);
 
             let mut attributes =
-                vec![Attribute { trait_type: "Prompt".to_string(), value: prompt }];
+                vec![Attribute { trait_type: "Prompt".to_string(), value: prompt.clone() }];
 
             // TODO get nft contract address from KV store
             let nft_contract = std::env::var("nft_contract")
@@ -87,26 +88,26 @@ impl Guest for Component {
                 });
             }
 
+            // TODO maybe upload image to IPFS separately?
+            // Generate image with Stable Diffusion
+            let image = image::generate_deterministic_image(&response).await?;
+
             // Create NFT metadata
             let metadata = NFTMetadata {
                 name: "AI Generated NFT".to_string(),
                 description: response.to_string(),
-                image: "ipfs://placeholder".to_string(), // Will be updated with real IPFS URI
+                image,
                 attributes,
             };
             eprintln!("Metadata: {:?}", metadata);
 
-            // Get IPFS URL from environment or use default
-            let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
-                .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
-
-            // Try to generate an image based on the prompt (this part is optional)
-            // In a full implementation, you might use an AI model to generate an image
-            // For now, we'll skip this part
-
             // Serialize metadata to JSON for IPFS upload
             let json = serde_json::to_string(&metadata)
                 .map_err(|e| format!("JSON serialization error: {}", e))?;
+
+            // Get IPFS URL from environment or use default
+            let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
+                .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
 
             // Upload metadata to IPFS
             let token_uri = match ipfs::upload_nft_content(
