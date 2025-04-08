@@ -100,7 +100,7 @@ deploy-service:
 	--trigger-event-name "${TRIGGER_EVENT}" \
 	--trigger-address "${SERVICE_TRIGGER_ADDR}" \
 	--submit-address "${SERVICE_SUBMISSION_ADDR}" \
-	--service-config ${SERVICE_CONFIG}
+	--service-config '${SERVICE_CONFIG}'
 
 ## show-result: showing the result | SERVICE_TRIGGER_ADDR, SERVICE_SUBMISSION_ADDR, RPC_URL
 show-result:

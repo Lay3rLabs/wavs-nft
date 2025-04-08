@@ -1,18 +1,25 @@
 #[allow(warnings)]
 mod bindings;
+mod evm;
 mod ipfs;
 mod nft;
 mod ollama;
 
+use std::str::FromStr;
+
+use alloy_primitives::Address;
 use alloy_sol_macro::sol;
 use alloy_sol_types::SolValue;
 use base64;
 use base64::Engine;
 use bindings::{
     export,
-    wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent},
+    wavs::worker::layer_types::{
+        TriggerData, TriggerDataEthContractEvent, TriggerSource, TriggerSourceEthContractEvent,
+    },
     Guest, TriggerAction,
 };
+use evm::query_nft_ownership;
 use nft::{Attribute, NFTMetadata};
 use wavs_wasi_chain::decode_event_log_data;
 use wstd::runtime::block_on;
@@ -57,9 +64,30 @@ impl Guest for Component {
             let sender_address = sender.to_string();
             eprintln!("Checking balance for address: {}", sender_address);
 
-            let attributes = vec![Attribute { trait_type: "Prompt".to_string(), value: prompt }];
+            let mut attributes =
+                vec![Attribute { trait_type: "Prompt".to_string(), value: prompt }];
 
-            // TODO Query ETH balance and add a "wealth" attribute if balance > 1 ETH
+            // TODO get nft contract address from KV store
+            let nft_contract = std::env::var("nft_contract")
+                .map_err(|e| format!("Failed to get nft contract: {}", e))?;
+            eprintln!("NFT contract: {}", nft_contract);
+
+            // Query NFT balance and add a "wealth" attribute if balance > 1 ETH
+            let owns_nft =
+                query_nft_ownership(sender, Address::from_str(&nft_contract).unwrap()).await?;
+            if owns_nft {
+                eprintln!("NFT owner: {}", sender);
+                attributes.push(Attribute {
+                    trait_type: "Wealth Level".to_string(),
+                    value: "Rich".to_string(),
+                });
+            } else {
+                eprintln!("Sender {} does not own NFT", sender);
+                attributes.push(Attribute {
+                    trait_type: "Wealth Level".to_string(),
+                    value: "Pre-Rich".to_string(),
+                });
+            }
 
             // Create NFT metadata
             let metadata = NFTMetadata {

@@ -164,7 +164,7 @@ PROMPT="How to become a great artist?" make wasi-exec
 > If you are running on a Mac with an ARM chip, you will need to do the following:
 >
 > - Set up Rosetta: `softwareupdate --install-rosetta`
-> - Enable Rosetta (Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
+> - Enable Rosetta (Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_46/amd64 emulation on Apple Silicon")
 >
 > Configure one of the following networking:
 >
@@ -221,13 +221,23 @@ export WAVS_MINTER=`jq -r '.minter' "./.docker/script_deploy.json"`
 export WAVS_NFT=`jq -r '.nft' "./.docker/script_deploy.json"`
 
 # Deploy autonmous artist component for the minting flow. Triggered here by the WavsMinter.sol contract
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8,uint256)" SERVICE_TRIGGER_ADDR=$WAVS_MINTER SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
+COMPONENT_FILENAME=autonomous_artist.wasm \
+TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8,uint256)" \
+SERVICE_TRIGGER_ADDR=$WAVS_MINTER \
+SERVICE_SUBMISSION_ADDR=$WAVS_NFT \
+SERVICE_CONFIG='{"fuel_limit":100000000,"max_gas":5000000,"host_envs":["WAVS_ENV_IPFS_API_URL","WAVS_ENV_LIGHTHOUSE_API_KEY"],"kv":[["nft_contract","'$WAVS_NFT'"]],"workflow_id":"default","component_id":"default"}' \
+make deploy-service
 
 # Deploy simple relayer component, triggered by successful minting from the WavsNft.sol contract
 COMPONENT_FILENAME=simple_relay.wasm TRIGGER_EVENT="WavsNftMint(address,uint256,string,uint64)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_MINTER make deploy-service
 
 # Deploy autonmous artist component for the update flow. Triggered here by the WavsNft.sol contract
-COMPONENT_FILENAME=autonomous_artist.wasm TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8,uint256)" SERVICE_TRIGGER_ADDR=$WAVS_NFT SERVICE_SUBMISSION_ADDR=$WAVS_NFT make deploy-service
+COMPONENT_FILENAME=autonomous_artist.wasm \
+TRIGGER_EVENT="WavsNftTrigger(address,string,uint64,uint8,uint256)" \
+SERVICE_TRIGGER_ADDR=$WAVS_NFT \
+SERVICE_SUBMISSION_ADDR=$WAVS_NFT \
+SERVICE_CONFIG='{"fuel_limit":100000000,"max_gas":5000000,"host_envs":["WAVS_ENV_IPFS_API_URL","WAVS_ENV_LIGHTHOUSE_API_KEY"],"kv":[["nft_contract","'$WAVS_NFT'"]],"workflow_id":"default","component_id":"default"}' \
+make deploy-service
 ```
 
 To see all options for deploying services, run `make wavs-cli -- deploy-service -h` and consider customizing `deploy service` in the `Makefile`.

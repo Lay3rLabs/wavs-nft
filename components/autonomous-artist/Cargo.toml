@@ -18,10 +18,15 @@ alloy-sol-types = { workspace = true }
 hex = "0.4.3"
 ethabi = "18.0.0"
 primitive-types = "0.13.1"
-alloy-primitives = "0.8.13"
+alloy-primitives = "0.8.25"
 base64 = "0.22.1"
 cid = "0.10.1"
 multihash = "0.18.1"
+alloy-network = "0.11.1"
+alloy-provider = { version = "0.11.1", default-features = false, features = ["rpc-api"] }
+alloy-rpc-types = "0.11.1"
+alloy-transport-http = { version = "0.11.1", default-features = false }
+url = "2.3.1"
 
 [dev-dependencies]
 mockall = "0.11"
