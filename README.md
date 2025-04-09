@@ -6,19 +6,25 @@ This example demonstrates a simple Dynamic NFT + Minter contract that can even c
 
 There are two contracts [`WavsNft.sol`](./src/contracts/WavsNft.sol) and [`WavsMinter.sol`](./src/contracts/WavsMinter.sol), as well as two components [`autonomous-artist`](./components/autonomous-artist/) and [`simple-relay`](./components/simple-relay/).
 
-The flow is:
+Mint flow:
 
-1. User pays minter contract which emits an `WavsNftTrigger` event
-2. WAVS listens for event and triggers the registered WASI component
+1. User pays `WavsMinter.sol` contract which emits an `WavsNftTrigger` event, user gets a receipt for their purchase, which after a certain timeout period they can use to get a refund if the AVS fails to run.
+2. WAVS listens for event and triggers the registered WASI component `autonomous_artist.wasm`
 3. `autonomous-artist` component runs, generates description and image, adds different attributes based on EVM queries, uploads NFT metadata to IPFS, and outputs an NFT tokenURI
-4. WAVS operators sign output with their keys and send results to aggregator
-5. Aggregator agregates signatures and puts results on chain
-6. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `WavsNftMint` event.
-7. WAVS listens for event and triggers the registered WASI component
-8. `simple-relay` component runs an outputs the TriggerId that has been completed
-9. Operators sign output
-10. Aggregator aggregates signatures and submits them on chain
-11. `handleSignedData` is called on the `WavsMinter.sol` contract, it deletes the Receipt
+4. WAVS operators sign output with their keys and send results to aggregator, aggregator agregates signatures and puts results on chain
+5. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `WavsNftMint` event.
+6. WAVS listens for event and triggers the registered WASI component `simple_relayer.wasm`
+7. `simple-relay` component runs an outputs the TriggerId that has been completed
+8. Operators sign output, Aggregator aggregates signatures and submits them on chain
+9. `handleSignedData` is called on the `WavsMinter.sol` contract, it deletes the Receipt
+
+Update flow:
+
+1. Owner of an NFT calls `triggerUpdate` on `WavsNft.sol` and emits a `WavsNftTrigger` with the update type.
+2. WAVS listens for event and triggers the registered WASI component `autonomous_artist.wasm`
+3. `autonomous-artist` component runs, generates new description and image, adds different attributes based on EVM queries, uploads NFT metadata to IPFS, and outputs a new NFT tokenURI
+4. WAVS operators sign output with their keys and send results to aggregator, aggregator agregates signatures and puts results on chain
+5. `handleSignedData` is called on the `WavsNft.sol` contract, it updates the NFT with the tokenURI.
 
 ## System Requirements
 
@@ -132,9 +138,24 @@ cd stable-diffusion-webui
 ./webui.sh --api
 ```
 
+For testing, you can alternately set `WAVS_ENV_SD_API_URL` and `WAVS_ENV_SD_API_KEY` with a stable diffusion API.
+
 ### Notes on Production Deployments
 
 In a production AVS environment, you would need to ship an bundles that bundles WAVS, Ollama, and Stable Diffusion together into a new docker image. More information on support for WAVS sidecars will be forthcoming in a future release. For deterministic output, every AVS operator MUST use the same GPU.
+
+</details>
+
+<details>
+<summary>IPFS: Lighthouse API keys</summary>
+This example currently uses [Lighthouse](https://lighthouse.storage/) to store NFT metadata.
+
+You can get a free API key by signing up, simply set it in your `.env` file.
+
+```
+WAVS_ENV_IPFS_API_URL="https://node.lighthouse.storage/api/v0/add"
+WAVS_ENV_LIGHTHOUSE_API_KEY="your-lighthouse-api-key"
+```
 
 </details>
 
