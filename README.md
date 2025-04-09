@@ -1,6 +1,6 @@
 # [WAVS](https://docs.wavs.xyz) NFT DEMO
 
-**Template for getting started with developing building dynamic NFTs with WAVS.**
+**Template for getting started with developing building dynamic NFTs with WAVS. NOT PRODUCTION READY.**
 
 This example demonstrates a simple Dynamic NFT + Minter contract that can even communicate with each other cross-chain.
 
@@ -10,7 +10,7 @@ The flow is:
 
 1. User pays minter contract which emits an `WavsNftTrigger` event
 2. WAVS listens for event and triggers the registered WASI component
-3. `autonomous-artist` component runs and outputs an NFT tokenURI
+3. `autonomous-artist` component runs, generates description and image, adds different attributes based on EVM queries, uploads NFT metadata to IPFS, and outputs an NFT tokenURI
 4. WAVS operators sign output with their keys and send results to aggregator
 5. Aggregator agregates signatures and puts results on chain
 6. `handleSignedData` is called on the `WavsNft.sol` contract, it mints an NFT with the tokenURI and emits an `WavsNftMint` event.
@@ -101,7 +101,7 @@ wkg config --default-registry wa.dev
 </details>
 
 <details>
-<summary>Install Ollama</summary>
+<summary>Install Ollama and Stable Diffusion</summary>
 ### Install Ollama
 
 This example use an LLM configured for determinism, run locally with Ollama. The model is llama3.1, but other open source models can be used if you change the config in `components/automous-artist/src`.
@@ -116,7 +116,25 @@ Get the llama 3.1 model.
 ollama pull llama3.1
 ```
 
-Note: in a production AVS environment, you would need to ship an AVS that bundles WAVS and Ollama together into a new docker image. More information on support for WAVS sidecars will be forthcoming in a future release.
+In a separate terminal run Ollama in the background with:
+
+```bash
+ollama serve
+```
+
+### Install Stable Diffusion
+
+In a separate terminal, run stable diffusion locally.
+
+```bash
+git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui
+cd stable-diffusion-webui
+./webui.sh --api
+```
+
+### Notes on Production Deployments
+
+In a production AVS environment, you would need to ship an bundles that bundles WAVS, Ollama, and Stable Diffusion together into a new docker image. More information on support for WAVS sidecars will be forthcoming in a future release. For deterministic output, every AVS operator MUST use the same GPU.
 
 </details>
 

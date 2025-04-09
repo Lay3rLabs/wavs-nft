@@ -88,15 +88,41 @@ impl Guest for Component {
                 });
             }
 
-            // TODO maybe upload image to IPFS separately?
             // Generate image with Stable Diffusion
-            let image = image::generate_deterministic_image(&response).await?;
+            let image_data = image::generate_deterministic_image(&response).await?;
+
+            // Extract base64 data from data URI
+            let base64_data = image_data
+                .strip_prefix("data:image/png;base64,")
+                .ok_or_else(|| "Invalid image data format".to_string())?;
+
+            // Decode base64 to raw bytes
+            let image_bytes = base64::engine::general_purpose::STANDARD
+                .decode(base64_data)
+                .map_err(|e| format!("Failed to decode base64 image: {}", e))?;
+
+            // Upload image to IPFS first
+            let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
+                .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
+            let image_uri = match ipfs::upload_nft_content("image/png", &image_bytes, &ipfs_url)
+                .await
+            {
+                Ok(ipfs_uri) => {
+                    eprintln!("Uploaded image to IPFS: {}", ipfs_uri);
+                    ipfs_uri
+                }
+                Err(e) => {
+                    eprintln!("Failed to upload image to IPFS, falling back to data URI: {}", e);
+                    // Fall back to data URI if IPFS upload fails
+                    image_data
+                }
+            };
 
             // Create NFT metadata
             let metadata = NFTMetadata {
                 name: "AI Generated NFT".to_string(),
                 description: response.to_string(),
-                image,
+                image: image_uri,
                 attributes,
             };
             eprintln!("Metadata: {:?}", metadata);
@@ -104,10 +130,6 @@ impl Guest for Component {
             // Serialize metadata to JSON for IPFS upload
             let json = serde_json::to_string(&metadata)
                 .map_err(|e| format!("JSON serialization error: {}", e))?;
-
-            // Get IPFS URL from environment or use default
-            let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
-                .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
 
             // Upload metadata to IPFS
             let token_uri = match ipfs::upload_nft_content(
