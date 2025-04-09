@@ -90,12 +90,13 @@ contract WavsNftTest is Test {
         vm.stopPrank();
     }
 
-    function testFailTriggerMintInsufficientPayment() public {
+    function test_RevertWhen_MintingWithInsufficientPayment() public {
         vm.deal(user1, 1 ether);
         vm.startPrank(user1);
 
         string memory prompt = "Test prompt for NFT";
-        minter.triggerMint{value: 0.05 ether}(prompt); // Should fail
+        vm.expectRevert("Insufficient payment");
+        minter.triggerMint{value: 0.05 ether}(prompt); // Should revert
 
         vm.stopPrank();
     }

@@ -87,12 +87,13 @@ contract WavsMinterTest is Test {
         vm.stopPrank();
     }
 
-    function testFailTriggerMintInsufficientPayment() public {
+    function test_RevertWhen_MintingWithInsufficientPayment() public {
         vm.deal(user1, 1 ether);
         vm.startPrank(user1);
 
         string memory prompt = "Test prompt for NFT";
-        minter.triggerMint{value: 0.05 ether}(prompt); // Should fail
+        vm.expectRevert("Insufficient payment");
+        minter.triggerMint{value: 0.05 ether}(prompt); // Should revert
 
         vm.stopPrank();
     }
@@ -159,7 +160,7 @@ contract WavsMinterTest is Test {
         assertTrue(receipt.fulfilled);
     }
 
-    function testFailHandleSignedDataNonExistentTrigger() public {
+    function test_RevertWhen_HandlingNonExistentTrigger() public {
         // Create a triggerId that doesn't exist
         IWavsNftServiceTypes.TriggerId nonExistentTriggerId = IWavsNftServiceTypes
                 .TriggerId
@@ -169,12 +170,13 @@ contract WavsMinterTest is Test {
         bytes memory data = abi.encode(nonExistentTriggerId);
         bytes memory signature = ""; // Mock signature
 
-        // This should fail because the trigger doesn't exist
+        // This should revert because the trigger doesn't exist
+        vm.expectRevert("Trigger does not exist");
         vm.prank(address(0));
         minter.handleSignedData(data, signature);
     }
 
-    function testFailHandleSignedDataAlreadyFulfilled() public {
+    function test_RevertWhen_HandlingAlreadyFulfilledTrigger() public {
         // First trigger a mint
         vm.deal(user1, 1 ether);
         vm.prank(user1);
@@ -190,6 +192,7 @@ contract WavsMinterTest is Test {
         minter.handleSignedData(data, signature);
 
         // Try to fulfill it again - this should fail
+        vm.expectRevert("Trigger already fulfilled");
         vm.prank(address(0));
         minter.handleSignedData(data, signature);
     }
@@ -208,10 +211,11 @@ contract WavsMinterTest is Test {
         assertEq(minter.mintPrice(), newPrice);
     }
 
-    function testFailSetMintPriceNonOwner() public {
+    function test_RevertWhen_NonOwnerSetsMintPrice() public {
         uint256 newPrice = 0.2 ether;
 
-        // Should fail when called by non-owner
+        // Should revert when called by non-owner
+        vm.expectRevert();
         vm.prank(user1);
         minter.setMintPrice(newPrice);
     }
@@ -235,18 +239,20 @@ contract WavsMinterTest is Test {
         assertEq(address(minter).balance, 0);
     }
 
-    function testFailWithdrawFeesNonOwner() public {
+    function test_RevertWhen_NonOwnerWithdrawsFees() public {
         // Send some ETH to the minter contract
         vm.deal(address(minter), 1 ether);
 
-        // Should fail when called by non-owner
+        // Should revert when called by non-owner
+        vm.expectRevert();
         vm.prank(user1);
         minter.withdrawFees();
     }
 
-    function testFailWithdrawFeesNoBalance() public {
+    function test_RevertWhen_WithdrawingWithNoBalance() public {
         // No ETH in the contract
+        vm.expectRevert("No balance to withdraw");
         vm.prank(owner);
-        minter.withdrawFees(); // Should fail with "No balance to withdraw"
+        minter.withdrawFees();
     }
 }

@@ -75,18 +75,20 @@ contract WavsNftDetailedTest is Test {
         assertFalse(nft.paused());
     }
 
-    function testFailPauseNonPauser() public {
-        // Should fail when called by non-pauser
+    function test_RevertWhen_NonPauserPauses() public {
+        // Should revert when called by non-pauser
+        vm.expectRevert();
         vm.prank(user1);
         nft.pause();
     }
 
-    function testFailUnpauseNonPauser() public {
+    function test_RevertWhen_NonPauserUnpauses() public {
         // First pause the contract
         vm.prank(owner);
         nft.pause();
 
-        // Should fail when called by non-pauser
+        // Should revert when called by non-pauser
+        vm.expectRevert();
         vm.prank(user1);
         nft.unpause();
     }
@@ -265,7 +267,7 @@ contract WavsNftDetailedTest is Test {
         vm.stopPrank();
     }
 
-    function testFailTriggerUpdateInsufficientPayment() public {
+    function test_RevertWhen_UpdatingWithInsufficientPayment() public {
         // First mint an NFT
         IWavsNftServiceTypes.TriggerId mintTriggerId = IWavsNftServiceTypes
             .TriggerId
@@ -294,10 +296,12 @@ contract WavsNftDetailedTest is Test {
         vm.deal(user1, 1 ether);
         vm.prank(user1);
         string memory updatePrompt = "Updated prompt for NFT";
-        nft.triggerUpdate{value: 0.005 ether}(0, updatePrompt); // Should fail
+
+        vm.expectRevert("Insufficient update fee");
+        nft.triggerUpdate{value: 0.005 ether}(0, updatePrompt); // Should revert
     }
 
-    function testFailTriggerUpdateNonOwner() public {
+    function test_RevertWhen_NonOwnerUpdatesNft() public {
         // First mint an NFT for user1
         IWavsNftServiceTypes.TriggerId mintTriggerId = IWavsNftServiceTypes
             .TriggerId
@@ -326,7 +330,9 @@ contract WavsNftDetailedTest is Test {
         vm.deal(user2, 1 ether);
         vm.prank(user2);
         string memory updatePrompt = "Updated prompt for NFT";
-        nft.triggerUpdate{value: updateFee}(0, updatePrompt); // Should fail
+
+        vm.expectRevert("Not NFT owner");
+        nft.triggerUpdate{value: updateFee}(0, updatePrompt); // Should revert
     }
 
     function testSetUpdateFee() public {
@@ -339,10 +345,11 @@ contract WavsNftDetailedTest is Test {
         assertEq(nft.updateFee(), newFee);
     }
 
-    function testFailSetUpdateFeeNonAdmin() public {
+    function test_RevertWhen_NonAdminSetsUpdateFee() public {
         uint256 newFee = 0.02 ether;
 
-        // Should fail when called by non-admin
+        // Should revert when called by non-admin
+        vm.expectRevert();
         vm.prank(user1);
         nft.setUpdateFee(newFee);
     }
@@ -357,16 +364,18 @@ contract WavsNftDetailedTest is Test {
         assertEq(nft.fundsRecipient(), newRecipient);
     }
 
-    function testFailSetFundsRecipientNonAdmin() public {
+    function test_RevertWhen_NonAdminSetsFundsRecipient() public {
         address newRecipient = address(5);
 
-        // Should fail when called by non-admin
+        // Should revert when called by non-admin
+        vm.expectRevert();
         vm.prank(user1);
         nft.setFundsRecipient(newRecipient);
     }
 
-    function testFailSetFundsRecipientZeroAddress() public {
-        // Should fail with zero address
+    function test_RevertWhen_SettingZeroAddressAsFundsRecipient() public {
+        // Should revert with zero address
+        vm.expectRevert("Invalid funds recipient");
         vm.prank(owner);
         nft.setFundsRecipient(address(0));
     }
