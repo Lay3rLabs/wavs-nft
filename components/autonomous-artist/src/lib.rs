@@ -8,7 +8,7 @@ mod ollama;
 
 use std::str::FromStr;
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, Uint};
 use alloy_sol_macro::sol;
 use alloy_sol_types::SolValue;
 use base64;
@@ -45,8 +45,16 @@ impl Guest for Component {
                         .map_err(|e| format!("Failed to decode event log data: {}", e))
                 }
                 // Fired from a raw data event (e.g. from a CLI command or from another component).
-                TriggerData::Raw(_) => {
-                    unimplemented!("Raw data is not supported yet");
+                TriggerData::Raw(data) => {
+                    let prompt = std::str::from_utf8(&data)
+                        .map_err(|e| format!("Failed to decode prompt from bytes: {}", e))?;
+                    Ok(WavsNftTrigger {
+                        sender: Address::ZERO,
+                        prompt: prompt.to_string(),
+                        triggerId: 0,
+                        wavsTriggerType: 0,
+                        tokenId: Uint::<256, 4>::ZERO,
+                    })
                 }
                 _ => Err("Unsupported trigger data type".to_string()),
             }?;

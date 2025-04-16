@@ -7,6 +7,8 @@ SUDO := $(shell if groups | grep -q docker; then echo ''; else echo 'sudo'; fi)
 default: build
 
 # Customize these variables
+PROMPT ?= "2 + 2 = ?"
+INPUT ?= `cast from-utf8 $(PROMPT)`
 COMPONENT_FILENAME ?= autonomous_artist.wasm
 # TRIGGER_EVENT ?= NewTrigger(bytes)
 SERVICE_CONFIG ?= {"fuel_limit":100000000,"max_gas":5000000,"host_envs":[],"kv":[],"workflow_id":"default","component_id":"default"}
@@ -36,11 +38,11 @@ wasi-build:
 	@mkdir -p ./compiled
 	@cp ./target/wasm32-wasip1/release/*.wasm ./compiled/
 
-## wasi-exec: executing the WAVS wasi component(s) | COMPONENT_FILENAME, COIN_MARKET_CAP_ID
+## wasi-exec: executing the WAVS wasi component(s) | COMPONENT_FILENAME, PROMPT
 wasi-exec:
 	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
 	--component "/data/compiled/${COMPONENT_FILENAME}" \
-	--input "$(PROMPT)"
+	--input $(INPUT)
 
 ## update-submodules: update the git submodules
 update-submodules:

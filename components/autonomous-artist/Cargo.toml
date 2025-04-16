@@ -43,4 +43,4 @@ lto = true
 
 [package.metadata.component]
 package = "component:autonomous-artist"
-target = "wavs:worker/layer-trigger-world@0.3.0-beta"
+target = "wavs:worker/layer-trigger-world@0.3.0"
