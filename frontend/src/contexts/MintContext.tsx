@@ -94,10 +94,18 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       const minterContract = getMinterContract();
       if (!minterContract) return;
 
-      const price = await minterContract.mintPrice();
-      setMintPrice(ethers.utils.formatEther(price));
+      try {
+        const price = await minterContract.mintPrice();
+        setMintPrice(ethers.utils.formatEther(price));
+      } catch (error) {
+        console.error("Error fetching mint price from contract, using default:", error);
+        // Hardcoded mint price as fallback (0.1 ETH)
+        setMintPrice("0.1");
+      }
     } catch (error) {
       console.error("Error loading mint price:", error);
+      // Hardcoded mint price as fallback (0.1 ETH)
+      setMintPrice("0.1");
     } finally {
       setLoadingMintPrice(false);
     }
@@ -216,7 +224,14 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       );
 
       // Get the mint price from the contract
-      const price = await contract.mintPrice();
+      let price;
+      try {
+        price = await contract.mintPrice();
+      } catch (error) {
+        console.error("Error fetching mint price from contract, using default:", error);
+        // Hardcoded mint price as fallback (0.1 ETH)
+        price = ethers.utils.parseEther("0.1");
+      }
 
       // Execute the transaction
       const tx = await contract.triggerMint(prompt, {
