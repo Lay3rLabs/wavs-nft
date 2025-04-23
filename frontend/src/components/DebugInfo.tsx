@@ -8,6 +8,7 @@ interface DebugData {
   address: string | undefined;
   chainId: number | undefined;
   chainName: string | undefined;
+  actualNodeChainId: string | null;
   minterAddress: string;
   nftAddress: string;
   minterExists: boolean;
@@ -26,13 +27,35 @@ const DebugInfo: React.FC = () => {
   const publicClient = usePublicClient();
 
   const fetchDebugData = async () => {
-    if (!publicClient || !isConnected) return;
+    if (!publicClient) return;
     
     setIsLoading(true);
     
     try {
       // For ethers v5 compatibility
       const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+      
+      // Detect actual chain ID from the local node
+      let actualNodeChainId = null;
+      try {
+        const response = await fetch('http://localhost:8545', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_chainId',
+            params: [],
+            id: 1,
+          }),
+        });
+        
+        const data = await response.json();
+        actualNodeChainId = data.result;
+      } catch (err) {
+        console.error('Error fetching chain ID from node:', err);
+      }
       
       // Check if contracts exist
       const minterBytecode = await provider.getCode(MINTER_CONTRACT_ADDRESS);
@@ -48,6 +71,7 @@ const DebugInfo: React.FC = () => {
         address,
         chainId: publicClient.chain.id,
         chainName: publicClient.chain.name,
+        actualNodeChainId,
         minterAddress: MINTER_CONTRACT_ADDRESS,
         nftAddress: NFT_CONTRACT_ADDRESS,
         minterExists,
@@ -138,16 +162,53 @@ const DebugInfo: React.FC = () => {
               </div>
             )}
             
-            {debugData.chainId !== 1337 && (
+            {debugData.actualNodeChainId && (
+              <div className="grid grid-cols-2 gap-1 mt-2">
+                <div className="text-primary/70">Node Chain ID:</div>
+                <div>{debugData.actualNodeChainId} (decimal: {parseInt(debugData.actualNodeChainId, 16)})</div>
+              </div>
+            )}
+            
+            {debugData.chainId !== parseInt(debugData.actualNodeChainId || '0x0', 16) && (
               <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-700 rounded">
-                <p className="text-yellow-400 mb-1">Wrong Network!</p>
-                <p className="text-primary/80 mb-1">You should be connected to the local network (Chain ID: 1337).</p>
-                <button 
-                  onClick={() => addLocalNetwork()}
-                  className="px-2 py-1 bg-yellow-800 hover:bg-yellow-700 text-yellow-200 rounded w-full"
-                >
-                  Switch to Local Network
-                </button>
+                <p className="text-yellow-400 mb-1">Network Mismatch!</p>
+                <p className="text-primary/80 mb-1">
+                  MetaMask Chain ID: {debugData.chainId || 'Unknown'}<br/>
+                  Node Chain ID: {debugData.actualNodeChainId ? parseInt(debugData.actualNodeChainId, 16) : 'Unknown'}
+                </p>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => addLocalNetwork()}
+                    className="px-2 py-1 bg-yellow-800 hover:bg-yellow-700 text-yellow-200 rounded flex-1"
+                  >
+                    Auto-Fix
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        // Try to switch to predefined networks as a fallback
+                        await window.ethereum.request({
+                          method: 'wallet_switchEthereumChain',
+                          params: [{ chainId: '0x1' }], // Switch to mainnet first (to reset)
+                        });
+                        setTimeout(async () => {
+                          if (debugData?.actualNodeChainId) {
+                            // Then switch to our local network
+                            await window.ethereum.request({
+                              method: 'wallet_switchEthereumChain',
+                              params: [{ chainId: debugData.actualNodeChainId }],
+                            });
+                          }
+                        }, 500);
+                      } catch (error) {
+                        console.error('Manual network switch failed:', error);
+                      }
+                    }}
+                    className="px-2 py-1 bg-dark-700 hover:bg-dark-600 text-primary rounded flex-1"
+                  >
+                    Manual Reset
+                  </button>
+                </div>
               </div>
             )}
             

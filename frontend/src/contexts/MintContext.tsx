@@ -90,7 +90,7 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
     return new ethers.Contract(NFT_CONTRACT_ADDRESS, WavsNftABI, provider);
   };
 
-  // Load mint price from the contract
+  // Get the mint price from the contract
   const loadMintPrice = async () => {
     try {
       setLoadingMintPrice(true);
@@ -98,6 +98,17 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       if (!minterContract) return;
 
       try {
+        // First check if the contract exists by getting its code
+        const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+        const code = await provider.getCode(MINTER_CONTRACT_ADDRESS);
+        
+        if (code === '0x') {
+          console.error(`Contract does not exist at ${MINTER_CONTRACT_ADDRESS}`);
+          setMintPrice(DEFAULT_MINT_PRICE);
+          return;
+        }
+        
+        // If the contract exists, try to call mintPrice()
         const price = await minterContract.mintPrice();
         setMintPrice(ethers.utils.formatEther(price));
       } catch (error) {
@@ -221,6 +232,13 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
         request: walletClient.request.bind(walletClient),
       } as any);
       const signer = provider.getSigner();
+      
+      // Check if the contract exists
+      const jsonRpcProvider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+      const bytecode = await jsonRpcProvider.getCode(MINTER_CONTRACT_ADDRESS);
+      if (bytecode === '0x') {
+        throw new Error(`Contract does not exist at ${MINTER_CONTRACT_ADDRESS}. Please make sure the contracts are deployed to your local network.`);
+      }
 
       // Create contract instance with ethers
       const contract = new ethers.Contract(
