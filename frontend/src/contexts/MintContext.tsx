@@ -233,9 +233,43 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
         price = ethers.utils.parseEther("0.1");
       }
 
+      // Check wallet balance
+      const balance = await provider.getBalance(address);
+      if (balance.lt(price)) {
+        const formatBalance = ethers.utils.formatEther(balance);
+        const formatPrice = ethers.utils.formatEther(price);
+        console.error(`Insufficient balance: ${formatBalance} ETH, needed: ${formatPrice} ETH (not including gas)`);
+        
+        // Get the current chain to provide specific faucet info
+        const chainId = publicClient.chain.id;
+        let faucetInfo = "";
+        
+        // Add network-specific faucet information
+        if (chainId === 1) {
+          // Mainnet - no faucets
+          faucetInfo = "You'll need to purchase ETH from an exchange.";
+        } else if (chainId === 5) {
+          // Goerli
+          faucetInfo = "Get test ETH from goerlifaucet.com";
+        } else if (chainId === 11155111) {
+          // Sepolia
+          faucetInfo = "Get test ETH from sepoliafaucet.com";
+        } else if (chainId === 80001) {
+          // Mumbai
+          faucetInfo = "Get test MATIC from mumbai.polygonscan.com/faucet";
+        } else {
+          // Generic message for other networks
+          faucetInfo = "Search for a faucet for your current network to get test tokens.";
+        }
+        
+        throw new Error(`Insufficient balance: You have ${formatBalance} ETH, but need at least ${formatPrice} ETH plus gas fees. ${faucetInfo}`);
+      }
+
       // Execute the transaction
       const tx = await contract.triggerMint(prompt, {
         value: price,
+        // Adding explicit gasLimit to prevent estimation errors
+        gasLimit: 300000, 
       });
 
       // Wait for the transaction to be mined
@@ -264,6 +298,10 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       return triggerId;
     } catch (error) {
       console.error("Error triggering mint:", error);
+      // If it's our custom error, propagate it
+      if (error instanceof Error && error.message.includes("Insufficient balance")) {
+        throw error;
+      }
       return null;
     }
   };
