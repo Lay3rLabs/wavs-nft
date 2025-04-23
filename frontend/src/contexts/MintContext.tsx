@@ -292,13 +292,9 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       }
 
       // Check if we're in a local/development environment for additional debugging
-      const isLocalEnv =
-        publicClient.chain.id === 31337 || // Anvil default
-        publicClient.chain.id === 1337 ||  // Ganache/Hardhat default
-        publicClient.chain.name.toLowerCase().includes("local") ||
-        publicClient.chain.name.toLowerCase().includes("anvil") ||
-        publicClient.chain.name.toLowerCase().includes("hardhat") ||
-        publicClient.chain.name.toLowerCase().includes("localhost");
+      const isLocalEnv = true; // Always show debugging in development
+      console.log("Chain ID:", publicClient.chain.id);
+      console.log("Chain Name:", publicClient.chain.name);
 
       // For local environments, log more debugging info
       if (isLocalEnv) {

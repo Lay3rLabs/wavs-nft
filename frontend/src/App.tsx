@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import Header from "./components/Header";
 import MintForm from "./components/MintForm";
 import NFTGallery from "./components/NFTGallery";
+import DebugInfo from "./components/DebugInfo";
 import { MintProvider } from "./contexts/MintContext";
+import { addLocalNetwork } from "./utils/addLocalNetwork";
 
 const MatrixRain: React.FC = () => {
   const [columns, setColumns] = useState<number[]>([]);
@@ -61,6 +63,44 @@ const App: React.FC = () => {
   const [bootSequence, setBootSequence] = useState(true);
   const [bootPhase, setBootPhase] = useState(0);
   const [loadingText, setLoadingText] = useState("");
+
+  // Add the local Anvil network to MetaMask when the app loads
+  useEffect(() => {
+    const setupLocalNetwork = async () => {
+      try {
+        // Check if we need to add the network
+        if (window.ethereum && process.env.NODE_ENV !== 'production') {
+          // Listen for chain changes to detect network issues
+          const handleChainChanged = (chainId: string) => {
+            console.log('Chain changed to:', chainId);
+            // If chainId is not our expected local chain (1337), prompt to add it
+            if (chainId !== '0x539') { // 1337 in hex
+              console.log('Not on local network, attempting to add and switch...');
+              addLocalNetwork().catch(console.error);
+            }
+          };
+
+          // Add event listener
+          window.ethereum.on('chainChanged', handleChainChanged);
+          
+          // Initial check and setup
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          handleChainChanged(chainId);
+          
+          // Cleanup
+          return () => {
+            if (window.ethereum && window.ethereum.removeListener) {
+              window.ethereum.removeListener('chainChanged', handleChainChanged);
+            }
+          };
+        }
+      } catch (error) {
+        console.error('Error setting up local network:', error);
+      }
+    };
+    
+    setupLocalNetwork();
+  }, []);
 
   // Boot sequence effect
   useEffect(() => {
@@ -196,6 +236,9 @@ const App: React.FC = () => {
             ></div>
           </div>
         </div>
+        
+        {/* Debug Panel (toggle with Ctrl+Shift+D) */}
+        <DebugInfo />
 
         <Header />
 
