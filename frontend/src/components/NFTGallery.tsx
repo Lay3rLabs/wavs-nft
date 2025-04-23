@@ -1,7 +1,91 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMint } from "../contexts/MintContext";
 import { useAccount } from "wagmi";
+
+// Assuming it takes approximately 40 seconds to generate an NFT
+const ESTIMATED_GENERATION_TIME = 40000; // 40 seconds in milliseconds
+
+// Dynamically calculate a completion estimation
+const getEstimatedTimeRemaining = (timestamp: number): string => {
+  const elapsed = Date.now() - timestamp;
+  const remainingMs = Math.max(0, ESTIMATED_GENERATION_TIME - elapsed);
+  
+  if (remainingMs === 0) return "Finalizing...";
+  
+  const remainingSecs = Math.ceil(remainingMs / 1000);
+  return `${remainingSecs}s`;
+};
+
+// Progress bar component for pending mints
+const ProgressBar: React.FC<{ mint: any }> = ({ mint }) => {
+  const [progress, setProgress] = useState(mint.startProgress || 0);
+  const [isComplete, setIsComplete] = useState(false);
+  
+  useEffect(() => {
+    // Calculate elapsed time since the mint was triggered
+    const elapsed = Date.now() - mint.timestamp;
+    
+    // Calculate initial progress based on elapsed time (0-95%)
+    // We cap at 95% to avoid showing 100% before it's actually done
+    const initialProgress = Math.min(95, (elapsed / ESTIMATED_GENERATION_TIME) * 100);
+    
+    // Set the initial progress
+    setProgress(initialProgress);
+    
+    // If we're already at 95%, mark as near complete
+    if (initialProgress >= 95) {
+      setIsComplete(true);
+    } else {
+      // Otherwise, continue to update progress
+      const interval = setInterval(() => {
+        setProgress(current => {
+          // Calculate new progress based on current time
+          const newElapsed = Date.now() - mint.timestamp;
+          const newProgress = Math.min(95, (newElapsed / ESTIMATED_GENERATION_TIME) * 100);
+          
+          // If we've reached 95%, clear the interval
+          if (newProgress >= 95) {
+            clearInterval(interval);
+            setIsComplete(true);
+            return 95;
+          }
+          
+          return newProgress;
+        });
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [mint.timestamp]);
+  
+  return (
+    <>
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-primary/50 font-mono flex items-center">
+          {isComplete ? "FINALIZING" : "GENERATING"}
+          <span className="ml-1 text-accent animate-pulse">⚡</span>
+        </span>
+        <div className="flex items-center">
+          <span className="text-xs text-accent font-mono">
+            {isComplete ? "95%" : `${Math.floor(progress)}%`}
+          </span>
+          <span className="ml-2 text-[10px] text-primary/30 font-mono">
+            ETA: {getEstimatedTimeRemaining(mint.timestamp)}
+          </span>
+        </div>
+      </div>
+      <div className="w-full h-1 bg-dark-900 mt-1">
+        <div
+          className={`h-full ${isComplete ? "bg-accent" : "bg-cyber-gradient"} ${isComplete ? "animate-pulse" : "transition-all duration-1000"}`}
+          style={{
+            width: `${progress}%`,
+          }}
+        ></div>
+      </div>
+    </>
+  );
+};
 
 const NFTGallery: React.FC = () => {
   const { ownedNfts, pendingMints, loadingNfts, refreshNfts } = useMint();
@@ -291,22 +375,7 @@ const NFTGallery: React.FC = () => {
 
                       {/* Loading progress */}
                       <div className="mt-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-primary/50 font-mono">
-                            GENERATING
-                          </span>
-                          <span className="text-xs text-accent font-mono">
-                            {Math.floor(Math.random() * 30) + 70}%
-                          </span>
-                        </div>
-                        <div className="w-full h-1 bg-dark-900 mt-1">
-                          <div
-                            className="h-full bg-cyber-gradient animate-pulse"
-                            style={{
-                              width: `${Math.floor(Math.random() * 30) + 70}%`,
-                            }}
-                          ></div>
-                        </div>
+                        <ProgressBar mint={mint} />
                       </div>
                     </div>
                   </div>

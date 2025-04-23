@@ -31,6 +31,7 @@ interface PendingMint {
   triggerId: string;
   prompt: string;
   timestamp: number;
+  startProgress?: number; // Optional starting progress percentage (for animation continuity)
 }
 
 interface OwnedNft {
@@ -156,11 +157,18 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       const storedMints = localStorage.getItem(`pendingMints-${address}`);
       if (storedMints) {
         const parsedMints = JSON.parse(storedMints);
+        
         // Filter out any that are too old (over 24 hours)
-        const recent = parsedMints.filter(
-          (mint: PendingMint) =>
-            Date.now() - mint.timestamp < 24 * 60 * 60 * 1000
-        );
+        const recent = parsedMints
+          .filter((mint: PendingMint) => Date.now() - mint.timestamp < 24 * 60 * 60 * 1000)
+          .map((mint: PendingMint) => {
+            // Make sure startProgress is defined
+            if (mint.startProgress === undefined) {
+              mint.startProgress = 0;
+            }
+            return mint;
+          });
+        
         setPendingMints(recent);
         localStorage.setItem(`pendingMints-${address}`, JSON.stringify(recent));
       }
@@ -384,6 +392,7 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
         triggerId,
         prompt,
         timestamp: Date.now(),
+        startProgress: 0, // Start at 0% progress
       };
 
       const updatedPendingMints = [...pendingMints, newPendingMint];

@@ -4,6 +4,7 @@ import Header from "./components/Header";
 import MintForm from "./components/MintForm";
 import NFTGallery from "./components/NFTGallery";
 import NFTDetailPage from "./components/NFTDetailPage";
+import HomePage from "./components/HomePage";
 import DebugInfo from "./components/DebugInfo";
 import { MintProvider } from "./contexts/MintContext";
 import { addLocalNetwork } from "./utils/addLocalNetwork";
