@@ -14,6 +14,9 @@ import WavsNftABI from "../abis/WavsNft.json";
 const MINTER_CONTRACT_ADDRESS = "0x809d550fca64d94bd9f66e60752a544199cfac3d"; // Replace with actual address
 const NFT_CONTRACT_ADDRESS = "0x36c02da8a0983159322a80ffe9f24b1acff8b570"; // Replace with actual address
 
+// Default mint price as a fallback when contract call fails
+const DEFAULT_MINT_PRICE = "0.1"; // in ETH
+
 interface MintContextType {
   mintPrice: string;
   pendingMints: PendingMint[];
@@ -69,7 +72,7 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
     if (!publicClient) return null;
     // For ethers v5 compatibility with wagmi
     const provider = new ethers.providers.JsonRpcProvider(
-      publicClient.chain.rpcUrls.default.http[0]
+      "http://localhost:8545"
     );
     return new ethers.Contract(
       MINTER_CONTRACT_ADDRESS,
@@ -82,7 +85,7 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
     if (!publicClient) return null;
     // For ethers v5 compatibility with wagmi
     const provider = new ethers.providers.JsonRpcProvider(
-      publicClient.chain.rpcUrls.default.http[0]
+      "http://localhost:8545"
     );
     return new ethers.Contract(NFT_CONTRACT_ADDRESS, WavsNftABI, provider);
   };
@@ -98,14 +101,17 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
         const price = await minterContract.mintPrice();
         setMintPrice(ethers.utils.formatEther(price));
       } catch (error) {
-        console.error("Error fetching mint price from contract, using default:", error);
-        // Hardcoded mint price as fallback (0.1 ETH)
-        setMintPrice("0.1");
+        console.error(
+          "Error fetching mint price from contract, using default:",
+          error
+        );
+        // Use default mint price as fallback
+        setMintPrice(DEFAULT_MINT_PRICE);
       }
     } catch (error) {
       console.error("Error loading mint price:", error);
-      // Hardcoded mint price as fallback (0.1 ETH)
-      setMintPrice("0.1");
+      // Use default mint price as fallback
+      setMintPrice(DEFAULT_MINT_PRICE);
     } finally {
       setLoadingMintPrice(false);
     }
@@ -228,9 +234,12 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       try {
         price = await contract.mintPrice();
       } catch (error) {
-        console.error("Error fetching mint price from contract, using default:", error);
-        // Hardcoded mint price as fallback (0.1 ETH)
-        price = ethers.utils.parseEther("0.1");
+        console.error(
+          "Error fetching mint price from contract, using default:",
+          error
+        );
+        // Use default mint price as fallback
+        price = ethers.utils.parseEther(DEFAULT_MINT_PRICE);
       }
 
       // Check wallet balance
@@ -238,14 +247,28 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       if (balance.lt(price)) {
         const formatBalance = ethers.utils.formatEther(balance);
         const formatPrice = ethers.utils.formatEther(price);
-        console.error(`Insufficient balance: ${formatBalance} ETH, needed: ${formatPrice} ETH (not including gas)`);
-        
-        // Get the current chain to provide specific faucet info
+        console.error(
+          `Insufficient balance: ${formatBalance} ETH, needed: ${formatPrice} ETH (not including gas)`
+        );
+
+        // Get the current chain to provide specific guidance
         const chainId = publicClient.chain.id;
+        const chainName = publicClient.chain.name.toLowerCase();
         let faucetInfo = "";
-        
-        // Add network-specific faucet information
-        if (chainId === 1) {
+
+        // Add network-specific information
+        if (
+          chainId === 31337 || // Anvil default
+          chainId === 1337 ||  // Ganache/Hardhat default
+          chainName.includes("local") ||
+          chainName.includes("anvil") ||
+          chainName.includes("hardhat") ||
+          chainName.includes("localhost")
+        ) {
+          // Local Anvil/Hardhat environment
+          faucetInfo =
+            "For Anvil/local node: Use `anvil --balance 10000` to increase starting balance or send ETH to your account with `cast send --value 1ether <your-address> --private-key <anvil-private-key>`";
+        } else if (chainId === 1) {
           // Mainnet - no faucets
           faucetInfo = "You'll need to purchase ETH from an exchange.";
         } else if (chainId === 5) {
@@ -259,17 +282,78 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
           faucetInfo = "Get test MATIC from mumbai.polygonscan.com/faucet";
         } else {
           // Generic message for other networks
-          faucetInfo = "Search for a faucet for your current network to get test tokens.";
+          faucetInfo =
+            "Search for a faucet for your current network to get test tokens.";
         }
-        
-        throw new Error(`Insufficient balance: You have ${formatBalance} ETH, but need at least ${formatPrice} ETH plus gas fees. ${faucetInfo}`);
+
+        throw new Error(
+          `Insufficient balance: You have ${formatBalance} ETH, but need at least ${formatPrice} ETH plus gas fees. ${faucetInfo}`
+        );
+      }
+
+      // Check if we're in a local/development environment for additional debugging
+      const isLocalEnv =
+        publicClient.chain.id === 31337 || // Anvil default
+        publicClient.chain.id === 1337 ||  // Ganache/Hardhat default
+        publicClient.chain.name.toLowerCase().includes("local") ||
+        publicClient.chain.name.toLowerCase().includes("anvil") ||
+        publicClient.chain.name.toLowerCase().includes("hardhat") ||
+        publicClient.chain.name.toLowerCase().includes("localhost");
+
+      // For local environments, log more debugging info
+      if (isLocalEnv) {
+        console.log("Local environment detected, logging debug info:");
+        console.log("Chain ID:", publicClient.chain.id);
+        console.log("Chain Name:", publicClient.chain.name);
+        console.log("Minter Contract Address:", MINTER_CONTRACT_ADDRESS);
+        console.log("NFT Contract Address:", NFT_CONTRACT_ADDRESS);
+        console.log("Connected Address:", address);
+        console.log("Mint Price (wei):", price.toString());
+        console.log(
+          "Balance (wei):",
+          (await provider.getBalance(address)).toString()
+        );
+
+        try {
+          // Try to read contract bytecode to check if it exists
+          const minterBytecode = await provider.getCode(MINTER_CONTRACT_ADDRESS);
+          const nftBytecode = await provider.getCode(NFT_CONTRACT_ADDRESS);
+          
+          console.log("Minter Contract exists?", minterBytecode !== "0x");
+          console.log("NFT Contract exists?", nftBytecode !== "0x");
+          
+          if (minterBytecode === "0x") {
+            console.error(
+              "⚠️ MINTER CONTRACT DOES NOT EXIST at address:",
+              MINTER_CONTRACT_ADDRESS
+            );
+            console.log("Deploy the contract with: forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --broadcast");
+          }
+          
+          if (nftBytecode === "0x") {
+            console.error(
+              "⚠️ NFT CONTRACT DOES NOT EXIST at address:",
+              NFT_CONTRACT_ADDRESS
+            );
+          }
+          
+          // Show a way to deploy with the specific contract addresses
+          console.log("\nTo deploy the contracts to these exact addresses, run the following commands:");
+          console.log(`1. Start anvil with specific accounts: 
+           anvil --accounts 2 --balance 10000 --chain-id 1337`);
+          console.log(`2. Deploy the contracts with the specific addresses:
+           forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --broadcast`);
+          console.log("\nAfter deployment, check if the contracts were deployed to the expected addresses.");
+        } catch (e) {
+          console.error("Error checking contract bytecode:", e);
+        }
       }
 
       // Execute the transaction
       const tx = await contract.triggerMint(prompt, {
         value: price,
         // Adding explicit gasLimit to prevent estimation errors
-        gasLimit: 300000, 
+        gasLimit: 300000,
       });
 
       // Wait for the transaction to be mined
@@ -298,10 +382,33 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
       return triggerId;
     } catch (error) {
       console.error("Error triggering mint:", error);
-      // If it's our custom error, propagate it
-      if (error instanceof Error && error.message.includes("Insufficient balance")) {
-        throw error;
+
+      // Check for specific error types and provide better feedback
+      if (error instanceof Error) {
+        // For insufficient balance errors, propagate our custom error
+        if (error.message.includes("Insufficient balance")) {
+          throw error;
+        }
+
+        // For contract not found errors
+        if (
+          error.message.includes("call revert exception") &&
+          error.message.includes('method="mintPrice()"')
+        ) {
+          console.error("Contract method not available. This usually means:");
+          console.error(
+            "1. The contract doesn't exist at the specified address"
+          );
+          console.error(
+            "2. The contract at that address doesn't have the expected functions"
+          );
+          console.error("3. You might be connected to the wrong network");
+
+          const errorMsg = `Contract error: The mintPrice() function is not available. Make sure the contract is deployed at ${MINTER_CONTRACT_ADDRESS} on your current network.`;
+          throw new Error(errorMsg);
+        }
       }
+
       return null;
     }
   };
