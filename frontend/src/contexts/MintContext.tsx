@@ -193,7 +193,7 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
           // Assume tokenURI is either IPFS or HTTP URL
           const isIpfs = tokenURI.startsWith("ipfs://");
           const metadataUrl = isIpfs
-            ? tokenURI.replace("ipfs://", "https://ipfs.io/ipfs/")
+            ? tokenURI.replace("ipfs://", "https://gateway.lighthouse.storage/ipfs/")
             : tokenURI;
 
           const response = await fetch(metadataUrl);
@@ -201,7 +201,7 @@ export const MintProvider: React.FC<MintProviderProps> = ({ children }) => {
 
           if (metadata.image) {
             imageUrl = metadata.image.startsWith("ipfs://")
-              ? metadata.image.replace("ipfs://", "https://ipfs.io/ipfs/")
+              ? metadata.image.replace("ipfs://", "https://gateway.lighthouse.storage/ipfs/")
               : metadata.image;
           }
         } catch (error) {
