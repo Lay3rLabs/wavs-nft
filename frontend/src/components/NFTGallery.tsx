@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMint } from "../contexts/MintContext";
 import { useAccount } from "wagmi";
 
@@ -6,6 +7,7 @@ const NFTGallery: React.FC = () => {
   const { ownedNfts, pendingMints, loadingNfts, refreshNfts } = useMint();
   const { isConnected } = useAccount();
   const [selectedNft, setSelectedNft] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   if (!isConnected) {
     return (
@@ -332,11 +334,14 @@ const NFTGallery: React.FC = () => {
                                    ? "border-cyber-gradient shadow-lg shadow-primary/20"
                                    : "border-dark-600 hover:border-primary/30"
                                }`}
-                    onClick={() =>
-                      setSelectedNft(
-                        selectedNft === nft.tokenId ? null : nft.tokenId
-                      )
-                    }
+                    onClick={(e) => {
+                      // If clicking on IPFS_DATA button, don't navigate
+                      if ((e.target as HTMLElement).closest('button')) {
+                        return;
+                      }
+                      // Navigate to NFT detail page
+                      navigate(`/nft/${nft.tokenId}`);
+                    }}
                   >
                     {/* Status indicator */}
                     <div className="absolute top-0 right-0 border-l border-b border-dark-600 px-2 py-1 text-[10px] font-mono text-primary">
@@ -390,36 +395,52 @@ const NFTGallery: React.FC = () => {
                         <div className="font-mono text-primary/90">
                           {nft.metadata?.name || "UNNAMED_ASSET"}
                         </div>
-                        {/* Technical details button */}
-                        <button
-                          className="text-[10px] border border-primary/40 px-1 font-mono text-accent"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(
-                              nft.tokenURI.replace(
-                                "ipfs://",
-                                "https://ipfs.io/ipfs/"
-                              ),
-                              "_blank"
-                            );
-                          }}
-                        >
-                          IPFS_DATA
-                        </button>
+                        <div className="flex space-x-2">
+                          {/* View details button */}
+                          <button
+                            className="text-[10px] border border-accent/70 px-1 font-mono text-accent"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/nft/${nft.tokenId}`);
+                            }}
+                          >
+                            VIEW
+                          </button>
+                          {/* Technical details button */}
+                          <button
+                            className="text-[10px] border border-primary/40 px-1 font-mono text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(
+                                nft.tokenURI.replace(
+                                  "ipfs://",
+                                  "https://gateway.lighthouse.storage/ipfs/"
+                                ),
+                                "_blank"
+                              );
+                            }}
+                          >
+                            IPFS_DATA
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Metadata preview */}
+                      {/* Always show description */}
+                      {nft.metadata?.description && (
+                        <div className="mt-2 font-mono text-xs">
+                          <div className="console-output text-[10px]">
+                            <div className="text-primary/60"> DESC::</div>
+                            <div className="pl-2 text-primary/90 mb-2 line-clamp-3 group-hover:line-clamp-none transition-all">
+                              {nft.metadata.description}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Extra metadata preview */}
                       {selectedNft === nft.tokenId && nft.metadata && (
-                        <div className="mt-3 border-t border-dark-700 pt-3 font-mono text-xs">
+                        <div className="mt-2 border-t border-dark-700 pt-2 font-mono text-xs">
                           <div className="console-output text-[10px] max-h-24 overflow-y-auto">
-                            {nft.metadata.description ? (
-                              <>
-                                <div className="text-primary/60"> DESC::</div>
-                                <div className="pl-2 text-primary/90 mb-2">
-                                  {nft.metadata.description}
-                                </div>
-                              </>
-                            ) : null}
 
                             {nft.metadata.attributes ? (
                               <>
