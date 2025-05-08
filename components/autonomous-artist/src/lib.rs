@@ -136,7 +136,7 @@ impl Guest for Component {
             name: None,
         }, Message {
             role: "user".to_string(),
-            content: Some(response.clone()),
+            content: Some(prompt.clone()),
             tool_calls: None,
             tool_call_id: None,
             name: None,
