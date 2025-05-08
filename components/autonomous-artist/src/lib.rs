@@ -21,7 +21,15 @@ use bindings::{
 use evm::query_nft_ownership;
 use nft::{Attribute, NFTMetadata};
 use wavs_wasi_chain::decode_event_log_data;
-use wstd::runtime::block_on;
+use wstd::{http::response, runtime::block_on};
+
+use wavs_llm::{
+    client::with_config,
+    contracts::{self, ContractManagerImpl},
+    traits::{GuestContractManager, GuestLlmClientManager},
+    types::{Config, LlmOptions, LlmResponse, Message},
+    AgentError,
+};
 
 // Use the sol! macro to import needed solidity types
 // You can write solidity code in the macro and it will be available in the component
@@ -54,91 +62,139 @@ impl Guest for Component {
         eprintln!("Processing Trigger ID: {}", triggerId);
         eprintln!("Prompt: {}", &prompt);
 
-        block_on(async move {
-            // Query Ollama
-            let response = ollama::query_ollama(&prompt).await?;
-            eprintln!("Response: {}", response);
+        let model = "llama3.2".to_string();
+        let llm_config = LlmOptions {
+            context_window: Some(1024),
+            max_tokens: Some(1024),
+            seed: 42,
+            temperature: 0.7,
+            top_p: 0.9,
+        };
 
-            // Check the creator's ETH balance
-            let sender_address = sender.to_string();
-            eprintln!("Checking balance for address: {}", sender_address);
+        // Create LLM client implementation using the standalone constructor
+        let llm_client = with_config(model.clone(), llm_config).map_err(|e| e.to_string())?;
 
-            let mut attributes =
-                vec![Attribute { trait_type: "Prompt".to_string(), value: prompt.clone() }];
+        let response =
+            llm_client.chat_completion_text(vec![Message {
+                role: "system".to_string(),
+                content: Some("You are avant garde artist and philosopher Gilles Deleuze. Write a few sentences about the prompt.".to_string()),
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            }, Message {
+                role: "user".to_string(),
+                content: Some(prompt.clone()),
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            }]).map_err(|e| e.to_string())?;
 
-            // TODO get nft contract address from KV store
-            let nft_contract = std::env::var("nft_contract")
-                .map_err(|e| format!("Failed to get nft contract: {}", e))?;
-            eprintln!("NFT contract: {}", nft_contract);
+        eprintln!("Response: {}", response);
 
-            // Query NFT balance and add a "wealth" attribute if balance > 1 ETH
-            let owns_nft =
-                query_nft_ownership(sender, Address::from_str(&nft_contract).unwrap()).await?;
-            if owns_nft {
-                eprintln!("NFT owner: {}", sender);
-                attributes.push(Attribute {
-                    trait_type: "Wealth Level".to_string(),
-                    value: "Rich".to_string(),
-                });
-            } else {
-                eprintln!("Sender {} does not own NFT", sender);
-                attributes.push(Attribute {
-                    trait_type: "Wealth Level".to_string(),
-                    value: "Pre-Rich".to_string(),
-                });
+        // // Query Ollama
+        // let response = ollama::query_ollama(&prompt).await?;
+        // eprintln!("Response: {}", response);
+
+        // Check the creator's ETH balance
+        let sender_address = sender.to_string();
+        eprintln!("Checking balance for address: {}", sender_address);
+
+        let mut attributes =
+            vec![Attribute { trait_type: "Prompt".to_string(), value: prompt.clone() }];
+
+        // TODO get nft contract address from KV store
+        let nft_contract = std::env::var("nft_contract")
+            .map_err(|e| format!("Failed to get nft contract: {}", e))?;
+        eprintln!("NFT contract: {}", nft_contract);
+
+        // Query NFT balance and add a "wealth" attribute if balance > 1 ETH
+        let owns_nft = query_nft_ownership(sender, Address::from_str(&nft_contract).unwrap())?;
+        if owns_nft {
+            eprintln!("NFT owner: {}", sender);
+            attributes.push(Attribute {
+                trait_type: "Wealth Level".to_string(),
+                value: "Rich".to_string(),
+            });
+        } else {
+            eprintln!("Sender {} does not own NFT", sender);
+            attributes.push(Attribute {
+                trait_type: "Wealth Level".to_string(),
+                value: "Pre-Rich".to_string(),
+            });
+        }
+
+        let title = llm_client.chat_completion_text(vec![Message {
+            role: "system".to_string(),
+            content: Some("You are avant garde artist and philosopher Gilles Deleuze. Write a title for the following text. Use no more than 3 words.".to_string()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }, Message {
+            role: "user".to_string(),
+            content: Some(response.clone()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }]).map_err(|e| e.to_string())?;
+
+        let sd_prompt = llm_client.chat_completion_text(vec![Message {
+            role: "system".to_string(),
+            content: Some("You are an autonmous artist and an exper Stable Diffusion prompter. Take the input text and generate a Stable Diffusion prompt.".to_string()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }, Message {
+            role: "user".to_string(),
+            content: Some(response.clone()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }]).map_err(|e| e.to_string())?;
+
+        // Generate image with Stable Diffusion
+        let image_data = image::generate_deterministic_image(&sd_prompt)?;
+
+        // Extract base64 data from data URI
+        let base64_data = image_data
+            .strip_prefix("data:image/png;base64,")
+            .ok_or_else(|| "Invalid image data format".to_string())?;
+
+        // Decode base64 to raw bytes
+        let image_bytes = base64::engine::general_purpose::STANDARD
+            .decode(base64_data)
+            .map_err(|e| format!("Failed to decode base64 image: {}", e))?;
+
+        // Upload image to IPFS first
+        let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
+            .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
+        let image_uri = match ipfs::upload_nft_content("image/png", &image_bytes, &ipfs_url) {
+            Ok(ipfs_uri) => {
+                eprintln!("Uploaded image to IPFS: {}", ipfs_uri);
+                ipfs_uri
             }
+            Err(e) => {
+                eprintln!("Failed to upload image to IPFS, falling back to data URI: {}", e);
+                // Fall back to data URI if IPFS upload fails
+                image_data
+            }
+        };
 
-            // Generate image with Stable Diffusion
-            let image_data = image::generate_deterministic_image(&response).await?;
+        // Create NFT metadata
+        let metadata = NFTMetadata {
+            name: title,
+            description: response.to_string(),
+            image: image_uri,
+            attributes,
+        };
+        eprintln!("Metadata: {:?}", metadata);
 
-            // Extract base64 data from data URI
-            let base64_data = image_data
-                .strip_prefix("data:image/png;base64,")
-                .ok_or_else(|| "Invalid image data format".to_string())?;
+        // Serialize metadata to JSON for IPFS upload
+        let json = serde_json::to_string(&metadata)
+            .map_err(|e| format!("JSON serialization error: {}", e))?;
 
-            // Decode base64 to raw bytes
-            let image_bytes = base64::engine::general_purpose::STANDARD
-                .decode(base64_data)
-                .map_err(|e| format!("Failed to decode base64 image: {}", e))?;
-
-            // Upload image to IPFS first
-            let ipfs_url = std::env::var("WAVS_ENV_IPFS_API_URL")
-                .unwrap_or_else(|_| "https://node.lighthouse.storage/api/v0/add".to_string());
-            let image_uri = match ipfs::upload_nft_content("image/png", &image_bytes, &ipfs_url)
-                .await
-            {
-                Ok(ipfs_uri) => {
-                    eprintln!("Uploaded image to IPFS: {}", ipfs_uri);
-                    ipfs_uri
-                }
-                Err(e) => {
-                    eprintln!("Failed to upload image to IPFS, falling back to data URI: {}", e);
-                    // Fall back to data URI if IPFS upload fails
-                    image_data
-                }
-            };
-
-            // Create NFT metadata
-            let metadata = NFTMetadata {
-                name: "AI Generated NFT".to_string(),
-                description: response.to_string(),
-                image: image_uri,
-                attributes,
-            };
-            eprintln!("Metadata: {:?}", metadata);
-
-            // Serialize metadata to JSON for IPFS upload
-            let json = serde_json::to_string(&metadata)
-                .map_err(|e| format!("JSON serialization error: {}", e))?;
-
-            // Upload metadata to IPFS
-            let token_uri = match ipfs::upload_nft_content(
-                "application/json",
-                json.as_bytes(),
-                &ipfs_url,
-            )
-            .await
-            {
+        // Upload metadata to IPFS
+        let token_uri =
+            match ipfs::upload_nft_content("application/json", json.as_bytes(), &ipfs_url) {
                 Ok(ipfs_uri) => {
                     eprintln!("Uploaded metadata to IPFS: {}", ipfs_uri);
                     ipfs_uri
@@ -153,36 +209,35 @@ impl Guest for Component {
                 }
             };
 
-            // Create the output based on the trigger type
-            let output = match wavsTriggerType {
-                0 => WavsResponse {
-                    wavsTriggerType: WavsTriggerType::MINT,
-                    triggerId,
-                    data: WavsMintResult {
-                        triggerId: triggerId.into(),
-                        recipient: sender,
-                        tokenURI: token_uri,
-                    }
-                    .abi_encode()
-                    .into(),
-                },
-                1 => WavsResponse {
-                    wavsTriggerType: WavsTriggerType::UPDATE,
-                    triggerId,
-                    data: WavsUpdateResult {
-                        triggerId: triggerId.into(),
-                        owner: sender,
-                        tokenURI: token_uri,
-                        tokenId,
-                    }
-                    .abi_encode()
-                    .into(),
-                },
-                _ => return Err("Invalid trigger type".to_string()),
-            };
+        // Create the output based on the trigger type
+        let output = match wavsTriggerType {
+            0 => WavsResponse {
+                wavsTriggerType: WavsTriggerType::MINT,
+                triggerId,
+                data: WavsMintResult {
+                    triggerId: triggerId.into(),
+                    recipient: sender,
+                    tokenURI: token_uri,
+                }
+                .abi_encode()
+                .into(),
+            },
+            1 => WavsResponse {
+                wavsTriggerType: WavsTriggerType::UPDATE,
+                triggerId,
+                data: WavsUpdateResult {
+                    triggerId: triggerId.into(),
+                    owner: sender,
+                    tokenURI: token_uri,
+                    tokenId,
+                }
+                .abi_encode()
+                .into(),
+            },
+            _ => return Err("Invalid trigger type".to_string()),
+        };
 
-            Ok(Some(output.abi_encode()))
-        })
+        Ok(Some(output.abi_encode()))
     }
 }
 

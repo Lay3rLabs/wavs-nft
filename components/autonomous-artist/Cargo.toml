@@ -23,10 +23,13 @@ base64 = "0.22.1"
 cid = "0.10.1"
 multihash = "0.18.1"
 alloy-network = "0.11.1"
-alloy-provider = { version = "0.11.1", default-features = false, features = ["rpc-api"] }
+alloy-provider = { version = "0.11.1", default-features = false, features = [
+    "rpc-api",
+] }
 alloy-rpc-types = "0.11.1"
 alloy-transport-http = { version = "0.11.1", default-features = false }
 url = "2.3.1"
+wavs-llm = { git = "https://github.com/Lay3rLabs/wavs-safe", branch = "WITty-refactor" }
 
 [dev-dependencies]
 mockall = "0.11"
