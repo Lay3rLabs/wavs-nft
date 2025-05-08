@@ -6,6 +6,15 @@ This example demonstrates a simple Dynamic NFT + Minter contract that can even c
 
 There are two contracts [`WavsNft.sol`](./src/contracts/WavsNft.sol) and [`WavsMinter.sol`](./src/contracts/WavsMinter.sol), as well as two components [`autonomous-artist`](./components/autonomous-artist/) and [`simple-relay`](./components/simple-relay/), plus a React frontend application for interacting with the contracts.
 
+TODO:
+
+- [ ] Improve art by doing a second llama query to make a stable diffusion prompt
+- [ ] Consider generic WAVS components / libs for IPFS upload, LLM, etc.
+- [ ] No haiku, just let Deluze be Deluze
+- [ ] Make UI less cringe
+- [ ] Maybe comfy UI support?
+- [ ] Switch to llama-ccp rather than ollama?
+
 Mint flow:
 
 1. User pays `WavsMinter.sol` contract which emits an `WavsNftTrigger` event, user gets a receipt for their purchase, which after a certain timeout period they can use to get a refund if the AVS fails to run.
@@ -347,12 +356,14 @@ This project includes a React frontend that provides a user-friendly interface f
 1. Update the contract addresses in `frontend/src/contexts/MintContext.tsx` with your deployed contract addresses.
 
 2. Install dependencies:
+
    ```bash
    # At the project root
    yarn
    ```
 
 3. Run the frontend development server:
+
    ```bash
    yarn dev:frontend
    ```
