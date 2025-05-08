@@ -29,7 +29,9 @@ alloy-provider = { version = "0.11.1", default-features = false, features = [
 alloy-rpc-types = "0.11.1"
 alloy-transport-http = { version = "0.11.1", default-features = false }
 url = "2.3.1"
+# TODO these are under active development, replace with `wavs-tools` repo when done
 wavs-llm = { git = "https://github.com/Lay3rLabs/wavs-safe", branch = "WITty-refactor" }
+wavs-ipfs = { git = "https://github.com/Lay3rLabs/wavs-safe", branch = "WITty-refactor" }
 
 [dev-dependencies]
 mockall = "0.11"

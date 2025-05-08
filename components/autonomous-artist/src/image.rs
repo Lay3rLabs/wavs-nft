@@ -25,7 +25,7 @@ struct StableDiffusionRequest {
 struct StableDiffusionResponse {
     images: Vec<String>, // Base64 encoded images
     #[serde(default)] // Make parameters optional
-    parameters: Option<serde_json::Value>, // Use generic Value to handle any response structure
+    _parameters: Option<serde_json::Value>, // Use generic Value to handle any response structure
 }
 
 /// Generate a deterministic image using Stable Diffusion API
@@ -41,7 +41,8 @@ pub fn generate_deterministic_image(prompt: &str) -> Result<String, String> {
         // Fixed parameters for deterministic generation
         let request_data = StableDiffusionRequest {
             prompt: prompt.to_string(),
-            negative_prompt: "blurry, bad quality, distorted".to_string(),
+            negative_prompt: "blurry, bad quality, distorted, nonsquare, not full, borders"
+                .to_string(),
             seed: 42, // Always use the same seed
             steps: 30,
             cfg_scale: 7.0,

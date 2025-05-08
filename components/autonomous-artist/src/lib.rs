@@ -4,9 +4,6 @@ mod evm;
 mod image;
 mod ipfs;
 mod nft;
-mod ollama;
-
-use std::str::FromStr;
 
 use alloy_primitives::Address;
 use alloy_sol_macro::sol;
@@ -20,15 +17,13 @@ use bindings::{
 };
 use evm::query_nft_ownership;
 use nft::{Attribute, NFTMetadata};
+use std::str::FromStr;
 use wavs_wasi_chain::decode_event_log_data;
-use wstd::{http::response, runtime::block_on};
 
 use wavs_llm::{
     client::with_config,
-    contracts::{self, ContractManagerImpl},
-    traits::{GuestContractManager, GuestLlmClientManager},
-    types::{Config, LlmOptions, LlmResponse, Message},
-    AgentError,
+    traits::GuestLlmClientManager,
+    types::{LlmOptions, Message},
 };
 
 // Use the sol! macro to import needed solidity types
@@ -77,7 +72,7 @@ impl Guest for Component {
         let response =
             llm_client.chat_completion_text(vec![Message {
                 role: "system".to_string(),
-                content: Some("You are avant garde artist and philosopher Gilles Deleuze. Write a few sentences about the prompt.".to_string()),
+                content: Some("You are avant garde artist and philosopher Gilles Deleuze. Write no more than two sentences about the prompt.".to_string()),
                 tool_calls: None,
                 tool_call_id: None,
                 name: None,
@@ -90,10 +85,6 @@ impl Guest for Component {
             }]).map_err(|e| e.to_string())?;
 
         eprintln!("Response: {}", response);
-
-        // // Query Ollama
-        // let response = ollama::query_ollama(&prompt).await?;
-        // eprintln!("Response: {}", response);
 
         // Check the creator's ETH balance
         let sender_address = sender.to_string();
@@ -139,7 +130,7 @@ impl Guest for Component {
 
         let sd_prompt = llm_client.chat_completion_text(vec![Message {
             role: "system".to_string(),
-            content: Some("You are an autonmous artist and an exper Stable Diffusion prompter. Take the input text and generate a Stable Diffusion prompt.".to_string()),
+            content: Some("You are an autonomous artist and an expert Stable Diffusion v1.5 prompter. Take the input text and generate a Stable Diffusion prompt. Output ONLY the prompt which will be fed into the Stable Diffusion model txt2img. Use keywords that are relevant to the input text. Make sure the image is square aspect ratio.".to_string()),
             tool_calls: None,
             tool_call_id: None,
             name: None,
