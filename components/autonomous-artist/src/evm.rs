@@ -12,6 +12,7 @@ sol! {
     }
 }
 
+// TODO make generic component
 pub async fn query_nft_ownership(address: Address, nft_contract: Address) -> Result<bool, String> {
     let chain_config = get_eth_chain_config("local").unwrap();
     let provider: RootProvider<Ethereum> =

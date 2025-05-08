@@ -2,8 +2,14 @@
   "name": "wavs-foundry-template",
   "version": "1.0.0",
   "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
     "build": "forge build",
+    "build:all": "forge build && yarn workspace frontend build",
+    "dev:frontend": "yarn workspace frontend dev",
     "coverage": "forge coverage --report summary --report lcov --match-path 'test/unit/*'",
     "deploy:local": "forge script Deploy ${SERVICE_MANAGER} --sig 'run(string)' --rpc-url http://localhost:8545 --broadcast -vvvvv",
     "lint:check": "yarn lint:sol && forge fmt --check",

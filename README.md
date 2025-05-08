@@ -4,7 +4,16 @@
 
 This example demonstrates a simple Dynamic NFT + Minter contract that can even communicate with each other cross-chain.
 
-There are two contracts [`WavsNft.sol`](./src/contracts/WavsNft.sol) and [`WavsMinter.sol`](./src/contracts/WavsMinter.sol), as well as two components [`autonomous-artist`](./components/autonomous-artist/) and [`simple-relay`](./components/simple-relay/).
+There are two contracts [`WavsNft.sol`](./src/contracts/WavsNft.sol) and [`WavsMinter.sol`](./src/contracts/WavsMinter.sol), as well as two components [`autonomous-artist`](./components/autonomous-artist/) and [`simple-relay`](./components/simple-relay/), plus a React frontend application for interacting with the contracts.
+
+TODO:
+
+- [ ] Improve art by doing a second llama query to make a stable diffusion prompt
+- [ ] Consider generic WAVS components / libs for IPFS upload, LLM, etc.
+- [ ] No haiku, just let Deluze be Deluze
+- [ ] Make UI less cringe
+- [ ] Maybe comfy UI support?
+- [ ] Switch to llama-ccp rather than ollama?
 
 Mint flow:
 
@@ -328,3 +337,37 @@ This will:
 4. The WAVS service will pick up the event and process the update
 5. The NFT's tokenURI will be updated with the new AI-generated content
 6. Use the queries above to see updated NFT `tokenURI`
+
+## Frontend Application
+
+This project includes a React frontend that provides a user-friendly interface for interacting with the WAVS NFT contracts.
+
+### Features
+
+- Connect wallet using RainbowKit
+- Mint NFTs by providing text prompts
+- View pending mints with loading indicators
+- Display minted NFTs in a gallery view
+- Toast notifications for success and error messages
+- Responsive design using TailwindCSS
+
+### Setup and Running
+
+1. Update the contract addresses in `frontend/src/contexts/MintContext.tsx` with your deployed contract addresses.
+
+2. Install dependencies:
+
+   ```bash
+   # At the project root
+   yarn
+   ```
+
+3. Run the frontend development server:
+
+   ```bash
+   yarn dev:frontend
+   ```
+
+4. Open your browser at `http://localhost:3000` to access the application.
+
+See the [Frontend README](./frontend/README.md) for more details about the frontend application structure and features.

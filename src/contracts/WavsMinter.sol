@@ -65,7 +65,8 @@ contract WavsMinter is Ownable, ReentrancyGuard, IWavsServiceHandler {
     function triggerMint(
         string calldata prompt
     ) external payable nonReentrant returns (IWavsNftServiceTypes.TriggerId) {
-        require(msg.value >= mintPrice, "Insufficient payment");
+        // Clearer error message for insufficient payment
+        require(msg.value >= mintPrice, "Insufficient payment: Please send at least the mint price");
 
         // Get the next trigger ID and increment the counter
         IWavsNftServiceTypes.TriggerId triggerId = nextTriggerId;
