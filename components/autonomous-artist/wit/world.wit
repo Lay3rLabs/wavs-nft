@@ -1,0 +1,23 @@
+package component:dao-agent;
+
+world layer-trigger-world {
+  import wavs:agent/client@0.0.1;
+  import wavs:agent/config@0.0.1;
+  import wavs:agent/contracts@0.0.1;
+  import wavs:agent/errors@0.0.1;
+  import wavs:agent/tools@0.0.1;
+  import wavs:agent/types@0.0.1;
+
+  import host: interface {
+    use wavs:worker/layer-types@0.3.0.{eth-chain-config, cosmos-chain-config, log-level};
+
+    get-eth-chain-config: func(chain-name: string) -> option<eth-chain-config>;
+    get-cosmos-chain-config: func(chain-name: string) -> option<cosmos-chain-config>;
+
+    log: func(level: log-level, message: string);
+  }
+
+  use wavs:worker/layer-types@0.3.0.{trigger-action};
+
+  export run: func(trigger-action: trigger-action) -> result<option<list<u8>>, string>;
+}

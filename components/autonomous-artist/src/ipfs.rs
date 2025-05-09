@@ -4,8 +4,11 @@ use std::{
     fs::File,
     io::{Read, Write},
 };
-use wstd::http::{IntoBody, Request};
 use wstd::io::AsyncRead;
+use wstd::{
+    http::{IntoBody, Request},
+    runtime::block_on,
+};
 
 /// Uploads a file using multipart request to IPFS
 async fn upload_to_ipfs(file_path: &str, ipfs_url: &str) -> Result<String> {
@@ -167,38 +170,36 @@ pub fn get_ipfs_url(cid: &str, filename: Option<&str>) -> String {
 
 /// Uploads NFT content (metadata and/or image) to IPFS
 /// Returns the IPFS URI (ipfs://CID) for the content
-pub async fn upload_nft_content(
-    content_type: &str,
-    content: &[u8],
-    ipfs_url: &str,
-) -> Result<String> {
-    // Determine if this is JSON metadata or an image
-    let ipfs_uri = if content_type.contains("json") || content_type == "application/json" {
-        // It's JSON metadata
-        let json_str = std::str::from_utf8(content)
-            .map_err(|e| anyhow::anyhow!("Failed to convert JSON bytes to string: {}", e))?;
+pub fn upload_nft_content(content_type: &str, content: &[u8], ipfs_url: &str) -> Result<String> {
+    block_on(async move {
+        // Determine if this is JSON metadata or an image
+        let ipfs_uri = if content_type.contains("json") || content_type == "application/json" {
+            // It's JSON metadata
+            let json_str = std::str::from_utf8(content)
+                .map_err(|e| anyhow::anyhow!("Failed to convert JSON bytes to string: {}", e))?;
 
-        // Upload the JSON and return the IPFS URI
-        upload_json_to_ipfs(json_str, ipfs_url).await?
-    } else {
-        // It's an image or other binary content
-        let extension = match content_type {
-            "image/png" => "png",
-            "image/jpeg" => "jpg",
-            "image/gif" => "gif",
-            "image/svg+xml" => "svg",
-            _ => "bin", // Default extension for unknown types
+            // Upload the JSON and return the IPFS URI
+            upload_json_to_ipfs(json_str, ipfs_url).await?
+        } else {
+            // It's an image or other binary content
+            let extension = match content_type {
+                "image/png" => "png",
+                "image/jpeg" => "jpg",
+                "image/gif" => "gif",
+                "image/svg+xml" => "svg",
+                _ => "bin", // Default extension for unknown types
+            };
+
+            let filename = format!("nft_image.{}", extension);
+
+            // Upload the image and return the IPFS URI
+            upload_image_to_ipfs(content, &filename, ipfs_url).await?
         };
 
-        let filename = format!("nft_image.{}", extension);
+        // Log the upload
+        println!("Uploaded to IPFS with URI: {}", ipfs_uri);
 
-        // Upload the image and return the IPFS URI
-        upload_image_to_ipfs(content, &filename, ipfs_url).await?
-    };
-
-    // Log the upload
-    println!("Uploaded to IPFS with URI: {}", ipfs_uri);
-
-    // Return IPFS URI
-    Ok(ipfs_uri)
+        // Return IPFS URI
+        Ok(ipfs_uri)
+    })
 }
